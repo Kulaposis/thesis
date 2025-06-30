@@ -162,6 +162,8 @@ class ThesisManager {
         }
     }
 
+
+    // DAVE DAVE DAE
     // Add feedback
     public function addFeedback($chapter_id, $adviser_id, $feedback_text, $feedback_type = 'comment') {
         try {
