@@ -1,0 +1,26 @@
+# Deny direct access to the uploads directory
+Options -Indexes
+
+# Allow access only to specific file types
+<FilesMatch "\.(?i:pdf|doc|docx)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Deny access to all other file types
+<FilesMatch "^(?!.*\.(pdf|doc|docx)$)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Prevent script execution
+<FilesMatch "\.(?i:php|pl|py|jsp|asp|htm|html|shtml|sh|cgi)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Require authentication through the main application
+RewriteEngine On
+RewriteCond %{HTTP_REFERER} !^http://(www\.)?localhost [NC]
+RewriteCond %{HTTP_REFERER} !^http://(www\.)?localhost/SystemFunda_mid/ [NC]
+RewriteRule \.(pdf|doc|docx)$ - [F] 
