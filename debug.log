@@ -1,0 +1,100 @@
+[30-Jun-2025 08:10:33 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:10:33 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:10:33 Europe/Berlin] Action: get_adviser_feedback
+[30-Jun-2025 08:10:33 Europe/Berlin] POST data: []
+[30-Jun-2025 08:10:33 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"16"}
+[30-Jun-2025 08:10:41 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:12:45 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:12:45 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:12:45 Europe/Berlin] Action: get_adviser_feedback
+[30-Jun-2025 08:12:45 Europe/Berlin] POST data: []
+[30-Jun-2025 08:12:45 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"22"}
+[30-Jun-2025 08:12:49 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:12:51 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:12:51 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:12:51 Europe/Berlin] Action: get_adviser_feedback
+[30-Jun-2025 08:12:51 Europe/Berlin] POST data: []
+[30-Jun-2025 08:12:51 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"16"}
+[30-Jun-2025 08:12:54 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:13:17 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:13:27 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:14:16 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:14:51 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:14:51 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:14:51 Europe/Berlin] Action: get_adviser_feedback
+[30-Jun-2025 08:14:51 Europe/Berlin] POST data: []
+[30-Jun-2025 08:14:51 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"16"}
+[30-Jun-2025 08:14:58 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:15:04 Europe/Berlin] === START addFeedback ===
+[30-Jun-2025 08:15:04 Europe/Berlin] Adding feedback - Chapter ID: 23 (type: integer)
+[30-Jun-2025 08:15:04 Europe/Berlin] Adviser ID: 7 (type: integer)
+[30-Jun-2025 08:15:04 Europe/Berlin] Feedback type: comment
+[30-Jun-2025 08:15:04 Europe/Berlin] Feedback text length: 52
+[30-Jun-2025 08:15:04 Europe/Berlin] Chapter found: {"id":23,"thesis_id":15,"title":"Introduction","status":"draft"}
+[30-Jun-2025 08:15:04 Europe/Berlin] Adviser found: {"id":7,"full_name":"adrian servillejo","role":"adviser"}
+[30-Jun-2025 08:15:04 Europe/Berlin] Executing feedback insert query...
+[30-Jun-2025 08:15:04 Europe/Berlin] Feedback added successfully with ID: 13
+[30-Jun-2025 08:15:04 Europe/Berlin] === END addFeedback SUCCESS ===
+[30-Jun-2025 08:15:46 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:15:55 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:15:55 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:15:55 Europe/Berlin] Action: get_adviser_feedback
+[30-Jun-2025 08:15:55 Europe/Berlin] POST data: []
+[30-Jun-2025 08:15:55 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"22"}
+[30-Jun-2025 08:15:56 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:15:56 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:15:56 Europe/Berlin] Action: get_adviser_feedback
+[30-Jun-2025 08:15:56 Europe/Berlin] POST data: []
+[30-Jun-2025 08:15:56 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"16"}
+[30-Jun-2025 08:15:58 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:17:46 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:18:07 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:18:07 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:18:07 Europe/Berlin] Raw action from POST: not set
+[30-Jun-2025 08:18:07 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[30-Jun-2025 08:18:07 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[30-Jun-2025 08:18:07 Europe/Berlin] Action length: 20
+[30-Jun-2025 08:18:07 Europe/Berlin] Action is empty: no
+[30-Jun-2025 08:18:07 Europe/Berlin] POST data: []
+[30-Jun-2025 08:18:07 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"4"}
+[30-Jun-2025 08:18:09 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:18:09 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:18:09 Europe/Berlin] Raw action from POST: not set
+[30-Jun-2025 08:18:09 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[30-Jun-2025 08:18:09 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[30-Jun-2025 08:18:09 Europe/Berlin] Action length: 20
+[30-Jun-2025 08:18:09 Europe/Berlin] Action is empty: no
+[30-Jun-2025 08:18:09 Europe/Berlin] POST data: []
+[30-Jun-2025 08:18:09 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"16"}
+[30-Jun-2025 08:18:12 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:18:59 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:19:02 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:19:18 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:19:18 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:19:18 Europe/Berlin] Raw action from POST: not set
+[30-Jun-2025 08:19:18 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[30-Jun-2025 08:19:18 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[30-Jun-2025 08:19:18 Europe/Berlin] Action length: 20
+[30-Jun-2025 08:19:18 Europe/Berlin] Action is empty: no
+[30-Jun-2025 08:19:18 Europe/Berlin] POST data: []
+[30-Jun-2025 08:19:18 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"22"}
+[30-Jun-2025 08:19:32 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:20:51 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:20:51 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:20:51 Europe/Berlin] Raw action from POST: not set
+[30-Jun-2025 08:20:51 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[30-Jun-2025 08:20:51 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[30-Jun-2025 08:20:51 Europe/Berlin] Action length: 20
+[30-Jun-2025 08:20:51 Europe/Berlin] Action is empty: no
+[30-Jun-2025 08:20:51 Europe/Berlin] POST data: []
+[30-Jun-2025 08:20:51 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"15"}
+[30-Jun-2025 08:20:52 Europe/Berlin] === Feedback Management API Called ===
+[30-Jun-2025 08:20:52 Europe/Berlin] User: {"id":7,"email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[30-Jun-2025 08:20:52 Europe/Berlin] Raw action from POST: not set
+[30-Jun-2025 08:20:52 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[30-Jun-2025 08:20:52 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[30-Jun-2025 08:20:52 Europe/Berlin] Action length: 20
+[30-Jun-2025 08:20:52 Europe/Berlin] Action is empty: no
+[30-Jun-2025 08:20:52 Europe/Berlin] POST data: []
+[30-Jun-2025 08:20:52 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"22"}
+[30-Jun-2025 08:20:58 Europe/Berlin] === Feedback Management API Called ===

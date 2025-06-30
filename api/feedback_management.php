@@ -2,6 +2,11 @@
 session_start();
 header('Content-Type: application/json');
 
+// Enable error logging to a specific file
+ini_set('log_errors', 1);
+ini_set('error_log', '../debug.log');
+error_log("=== Feedback Management API Called ===");
+
 require_once '../config/database.php';
 require_once '../includes/auth.php';
 require_once '../includes/thesis_functions.php';
@@ -9,6 +14,7 @@ require_once '../includes/thesis_functions.php';
 // Check authentication
 $auth = new Auth();
 if (!$auth->isLoggedIn()) {
+    error_log("Authentication failed - user not logged in");
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
@@ -17,6 +23,15 @@ if (!$auth->isLoggedIn()) {
 $user = $auth->getCurrentUser();
 $thesisManager = new ThesisManager();
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
+
+error_log("User: " . json_encode($user));
+error_log("Raw action from POST: " . ($_POST['action'] ?? 'not set'));
+error_log("Raw action from GET: " . ($_GET['action'] ?? 'not set'));
+error_log("Final action variable: '$action'");
+error_log("Action length: " . strlen($action));
+error_log("Action is empty: " . (empty($action) ? 'yes' : 'no'));
+error_log("POST data: " . json_encode($_POST));
+error_log("GET data: " . json_encode($_GET));
 
 switch ($action) {
     case 'get_student_feedback':
@@ -51,10 +66,12 @@ switch ($action) {
             // Get all theses for this adviser to verify the student is assigned to them
             $adviserTheses = $thesisManager->getAdviserTheses($user['id']);
             $isStudentAssigned = false;
+            $matchingThesis = null;
             
             foreach ($adviserTheses as $thesis) {
                 if ($thesis['student_user_id'] == $student_id) {
                     $isStudentAssigned = true;
+                    $matchingThesis = $thesis;
                     break;
                 }
             }
@@ -65,8 +82,8 @@ switch ($action) {
                 exit;
             }
             
-            // Use the student_id from the thesis object
-            $feedback = $thesisManager->getStudentAllFeedback($thesis['student_id']);
+            // Use the student_id from the matching thesis object
+            $feedback = $thesisManager->getStudentAllFeedback($matchingThesis['student_id']);
         } else {
             // Get all feedback given by this adviser
             $feedback = $thesisManager->getAdviserAllFeedback($user['id']);
@@ -171,8 +188,10 @@ switch ($action) {
         break;
         
     default:
+        error_log("SWITCH DEFAULT CASE: Unknown action '$action'");
+        error_log("Available actions: get_student_feedback, get_adviser_feedback, add_feedback, delete_feedback");
         http_response_code(400);
-        echo json_encode(['error' => 'Invalid action']);
+        echo json_encode(['success' => false, 'error' => 'Invalid action: ' . $action]);
         break;
 }
 ?> 

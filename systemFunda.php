@@ -2128,25 +2128,52 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         document.getElementById('add-feedback-form').addEventListener('submit', function(e) {
           e.preventDefault();
           
+          console.log("=== FORM SUBMISSION DEBUG ===");
+          console.log("Form submitted!");
+          console.log("chapterId from closure:", chapterId);
+          console.log("typeof chapterId:", typeof chapterId);
+          
           const feedbackType = document.getElementById('feedback-type').value;
           const feedbackText = document.getElementById('feedback-text').value.trim();
           
+          console.log("feedbackType:", feedbackType);
+          console.log("feedbackText:", feedbackText);
+          console.log("feedbackText length:", feedbackText.length);
+          
           if (!feedbackText) {
+            console.log("ERROR: No feedback text entered");
             alert('Please enter feedback text');
             return;
           }
           
+          console.log("About to call addFeedback...");
+          alert("DEBUG: About to call addFeedback with chapterId: " + chapterId);
           addFeedback(chapterId, feedbackText, feedbackType);
         });
       }
       
       // Add feedback
       function addFeedback(chapterId, feedbackText, feedbackType) {
+        console.log("=== ADDGEEDBACK FUNCTION CALLED ===");
         console.log("Adding feedback:", {
           chapterId,
           feedbackText,
           feedbackType
         });
+        alert("DEBUG: addFeedback function called!");
+        
+        // Validate inputs before making the request
+        if (!chapterId) {
+          console.error("Chapter ID is missing or invalid:", chapterId);
+          alert('Error: Chapter ID is missing. Please select a chapter first.');
+          return;
+        }
+        
+        if (!feedbackText || feedbackText.trim() === '') {
+          console.error("Feedback text is empty");
+          alert('Error: Please enter feedback text.');
+          return;
+        }
         
         const formData = new FormData();
         formData.append('action', 'add_feedback');
@@ -2154,16 +2181,51 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         formData.append('feedback_text', feedbackText);
         formData.append('feedback_type', feedbackType);
         
+        // Debug: Log form data contents
+        console.log("Form data being sent:");
+        for (let [key, value] of formData.entries()) {
+          console.log(`  ${key}: ${value} (type: ${typeof value})`);
+        }
+        
+        console.log("=== ABOUT TO SEND FETCH REQUEST ===");
+        console.log("URL: api/feedback_management.php");
+        console.log("Method: POST");
+        
         fetch('api/feedback_management.php', {
           method: 'POST',
           body: formData
         })
         .then(response => {
           console.log("Feedback response status:", response.status);
-          if (!response.ok) {
-            throw new Error('Failed to add feedback');
-          }
-          return response.json();
+          console.log("Feedback response headers:", response.headers);
+          console.log("Response OK:", response.ok);
+          console.log("Response URL:", response.url);
+          
+          // Get response text first to check if it's valid JSON
+          return response.text().then(text => {
+            console.log("Raw response text:", text);
+            console.log("Response text length:", text.length);
+            
+            if (!response.ok) {
+              console.error(`HTTP Error ${response.status}: ${text}`);
+              throw new Error(`HTTP ${response.status}: ${text}`);
+            }
+            
+            if (text.trim() === '') {
+              console.error("Empty response received");
+              throw new Error("Empty response from server");
+            }
+            
+            try {
+              const parsed = JSON.parse(text);
+              console.log("Successfully parsed JSON:", parsed);
+              return parsed;
+            } catch (e) {
+              console.error("Failed to parse JSON response:", e);
+              console.error("Response text that failed to parse:", JSON.stringify(text));
+              throw new Error(`Invalid JSON response: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
+            }
+          });
         })
         .then(data => {
           console.log("Feedback response data:", data);
@@ -2175,13 +2237,18 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             alert('Feedback added successfully');
             
             // Reload feedback history
-            loadFeedbackHistory(currentStudentId, '');
+            if (currentStudentId) {
+              loadFeedbackHistory(currentStudentId, '');
+            } else {
+              console.warn("currentStudentId is not set, skipping feedback history reload");
+            }
           } else {
             throw new Error(data.error || 'Failed to add feedback');
           }
         })
         .catch(error => {
           console.error('Error adding feedback:', error);
+          console.error('Error stack:', error.stack);
           alert('Failed to add feedback: ' + error.message);
         });
       }

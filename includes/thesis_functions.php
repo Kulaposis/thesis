@@ -167,28 +167,71 @@ class ThesisManager {
     // Add feedback
     public function addFeedback($chapter_id, $adviser_id, $feedback_text, $feedback_type = 'comment') {
         try {
-            // Log the parameters
-            error_log("Adding feedback - Chapter ID: $chapter_id, Adviser ID: $adviser_id, Type: $feedback_type");
+            // Log the parameters with more detail
+            error_log("=== START addFeedback ===");
+            error_log("Adding feedback - Chapter ID: $chapter_id (type: " . gettype($chapter_id) . ")");
+            error_log("Adviser ID: $adviser_id (type: " . gettype($adviser_id) . ")");
+            error_log("Feedback type: $feedback_type");
+            error_log("Feedback text length: " . strlen($feedback_text));
             
-            // Verify the chapter exists
-            $sql = "SELECT id FROM chapters WHERE id = :chapter_id";
+            // Test database connection
+            if (!$this->db) {
+                error_log("Error: Database connection is null");
+                return false;
+            }
+            
+            // Verify the chapter exists with more details
+            $sql = "SELECT id, thesis_id, title, status FROM chapters WHERE id = :chapter_id";
             $stmt = $this->db->prepare($sql);
-            $stmt->bindParam(':chapter_id', $chapter_id);
-            $stmt->execute();
+            if (!$stmt) {
+                error_log("Error: Failed to prepare chapter lookup statement");
+                return false;
+            }
             
-            if ($stmt->rowCount() == 0) {
+            $stmt->bindParam(':chapter_id', $chapter_id, PDO::PARAM_INT);
+            $result = $stmt->execute();
+            
+            if (!$result) {
+                error_log("Error executing chapter lookup: " . implode(", ", $stmt->errorInfo()));
+                return false;
+            }
+            
+            $chapterData = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$chapterData) {
                 error_log("Error: Chapter ID $chapter_id not found in database");
                 return false;
             }
             
-            // Verify the adviser exists - fixed query to properly check adviser role
-            $sql = "SELECT id FROM users WHERE id = :adviser_id AND role = 'adviser'";
-            $stmt = $this->db->prepare($sql);
-            $stmt->bindParam(':adviser_id', $adviser_id);
-            $stmt->execute();
+            error_log("Chapter found: " . json_encode($chapterData));
             
-            if ($stmt->rowCount() == 0) {
+            // Verify the adviser exists - fixed query to properly check adviser role
+            $sql = "SELECT id, full_name, role FROM users WHERE id = :adviser_id AND role = 'adviser'";
+            $stmt = $this->db->prepare($sql);
+            if (!$stmt) {
+                error_log("Error: Failed to prepare adviser lookup statement");
+                return false;
+            }
+            
+            $stmt->bindParam(':adviser_id', $adviser_id, PDO::PARAM_INT);
+            $result = $stmt->execute();
+            
+            if (!$result) {
+                error_log("Error executing adviser lookup: " . implode(", ", $stmt->errorInfo()));
+                return false;
+            }
+            
+            $adviserData = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$adviserData) {
                 error_log("Error: Adviser ID $adviser_id not found in database or not an adviser");
+                return false;
+            }
+            
+            error_log("Adviser found: " . json_encode($adviserData));
+            
+            // Validate feedback type
+            $validTypes = ['comment', 'revision', 'approval'];
+            if (!in_array($feedback_type, $validTypes)) {
+                error_log("Error: Invalid feedback type '$feedback_type'. Valid types: " . implode(", ", $validTypes));
                 return false;
             }
             
@@ -196,21 +239,40 @@ class ThesisManager {
             $sql = "INSERT INTO feedback (chapter_id, adviser_id, feedback_text, feedback_type) 
                     VALUES (:chapter_id, :adviser_id, :feedback_text, :feedback_type)";
             $stmt = $this->db->prepare($sql);
-            $stmt->bindParam(':chapter_id', $chapter_id);
-            $stmt->bindParam(':adviser_id', $adviser_id);
-            $stmt->bindParam(':feedback_text', $feedback_text);
-            $stmt->bindParam(':feedback_type', $feedback_type);
+            if (!$stmt) {
+                error_log("Error: Failed to prepare feedback insert statement");
+                return false;
+            }
             
+            $stmt->bindParam(':chapter_id', $chapter_id, PDO::PARAM_INT);
+            $stmt->bindParam(':adviser_id', $adviser_id, PDO::PARAM_INT);
+            $stmt->bindParam(':feedback_text', $feedback_text, PDO::PARAM_STR);
+            $stmt->bindParam(':feedback_type', $feedback_type, PDO::PARAM_STR);
+            
+            error_log("Executing feedback insert query...");
             $result = $stmt->execute();
+            
             if ($result) {
-                error_log("Feedback added successfully");
+                $insertedId = $this->db->lastInsertId();
+                error_log("Feedback added successfully with ID: $insertedId");
+                error_log("=== END addFeedback SUCCESS ===");
                 return true;
             } else {
-                error_log("Error executing feedback insert statement: " . implode(", ", $stmt->errorInfo()));
+                $errorInfo = $stmt->errorInfo();
+                error_log("Error executing feedback insert statement: " . implode(", ", $errorInfo));
+                error_log("SQL State: " . $errorInfo[0] . ", Error Code: " . $errorInfo[1] . ", Message: " . $errorInfo[2]);
+                error_log("=== END addFeedback FAILURE ===");
                 return false;
             }
         } catch (PDOException $e) {
             error_log("PDOException in addFeedback: " . $e->getMessage());
+            error_log("Error Code: " . $e->getCode());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            error_log("=== END addFeedback EXCEPTION ===");
+            return false;
+        } catch (Exception $e) {
+            error_log("General Exception in addFeedback: " . $e->getMessage());
+            error_log("=== END addFeedback GENERAL EXCEPTION ===");
             return false;
         }
     }
