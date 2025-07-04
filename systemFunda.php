@@ -37,6 +37,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Word Viewer Styles and Scripts -->
+  <link rel="stylesheet" href="assets/css/word-viewer.css">
+  <script src="assets/js/word-viewer.js"></script>
   <style>
     :root {
       --primary: #3b82f6;
@@ -314,7 +317,6 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($recent_theses as $thesis): 
                 ?>
                 <div class="flex items-center gap-3">
-                  <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
                   <div class="flex-1">
                     <p class="text-sm font-medium"><?php echo htmlspecialchars($thesis['student_name']); ?></p>
                     <p class="text-xs text-gray-600"><?php echo htmlspecialchars($thesis['title']); ?></p>
@@ -642,7 +644,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       <!-- Document Review Tab Content -->
       <div id="document-review-content" class="tab-content hidden">
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 h-full">
           <!-- Chapter Selection Panel -->
           <div class="lg:col-span-1">
             <div class="bg-white rounded-lg shadow p-4">
@@ -653,63 +655,20 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </button>
               </div>
               <div id="chapter-list" class="space-y-2">
-                <?php foreach ($theses as $thesis): ?>
-                  <?php $chapters = $thesisManager->getThesisChapters($thesis['id']); ?>
-                  <?php if (!empty($chapters)): ?>
-                    <div class="border rounded-lg p-3">
-                      <h4 class="font-medium text-sm mb-2"><?php echo htmlspecialchars($thesis['student_name']); ?></h4>
-                      <p class="text-xs text-gray-500 mb-2"><?php echo htmlspecialchars($thesis['title']); ?></p>
-                      <div class="space-y-1">
-                        <?php foreach ($chapters as $chapter): ?>
-                          <?php 
-                            // Get files for this chapter
-                            $files = $thesisManager->getChapterFiles($chapter['id']);
-                            $hasFiles = !empty($files);
-                            $fileStatus = $hasFiles ? 'has-files' : 'no-files';
-                          ?>
-                          <button 
-                            class="w-full text-left px-2 py-1 text-sm rounded hover:bg-blue-50 chapter-item <?php echo $fileStatus; ?> <?php echo $chapter['status'] === 'submitted' ? 'border-l-4 border-yellow-400' : ''; ?>"
-                            data-chapter-id="<?php echo $chapter['id']; ?>"
-                            data-chapter-title="<?php echo htmlspecialchars($chapter['title']); ?>"
-                            data-has-files="<?php echo $hasFiles ? 'true' : 'false'; ?>">
-                            <div class="flex justify-between items-center">
-                              <span>
-                                Ch. <?php echo $chapter['chapter_number']; ?>: <?php echo htmlspecialchars($chapter['title']); ?>
-                                <?php if ($hasFiles): ?>
-                                  <i data-lucide="file-text" class="inline-block w-4 h-4 ml-1 text-blue-500"></i>
-                                <?php endif; ?>
-                              </span>
-                              <span class="text-xs px-1 py-0.5 rounded
-                                <?php echo $chapter['status'] === 'submitted' ? 'bg-yellow-100 text-yellow-800' : 
-                                         ($chapter['status'] === 'approved' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'); ?>">
-                                <?php echo ucfirst($chapter['status']); ?>
-                              </span>
+                <!-- Loading state -->
+                <div id="loading-students" class="text-center py-4">
+                  <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p class="mt-2 text-sm text-gray-500">Loading students...</p>
                             </div>
-                            <?php if ($hasFiles): ?>
-                              <div class="text-xs text-gray-500 mt-1">
-                                <?php echo count($files); ?> file(s) uploaded
-                                <span class="text-xs text-gray-400">· <?php echo date('M j, Y', strtotime($files[0]['uploaded_at'])); ?></span>
-                              </div>
-                            <?php endif; ?>
-                          </button>
-                        <?php endforeach; ?>
-                      </div>
-                    </div>
-                  <?php endif; ?>
-                <?php endforeach; ?>
                 
-                <?php if (empty($theses)): ?>
-                <div class="text-center py-8 text-gray-500">
-                  <i data-lucide="file-text" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-                  <p class="text-sm">No documents available for review</p>
+                <!-- Students will be dynamically loaded here -->
+                <div id="students-list"></div>
+                
+                <!-- Empty state -->
+                <div id="no-students" class="text-center py-8 text-gray-500 hidden">
+                  <i data-lucide="users" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                  <p class="text-sm">No students assigned for document review</p>
                 </div>
-                <?php else: ?>
-                <div class="text-center py-4 text-gray-500">
-                  <a href="test_uploads.php" target="_blank" class="mt-2 inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                    Check Database Status
-                  </a>
-                </div>
-                <?php endif; ?>
               </div>
             </div>
           </div>
@@ -752,15 +711,15 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   </a>
                 </div>
               </div>
-              <div class="p-4" style="height: calc(100vh - 200px); overflow-y: auto;">
-                <div id="document-content" class="prose max-w-none">
-                  <div class="text-center py-12 text-gray-500">
+              <div class="h-full" style="height: calc(100vh - 200px);">
+                <div id="adviser-word-document-viewer" class="h-full">
+                  <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
                     <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
                     <p>Select a document from the left panel to start reviewing</p>
                   </div>
                 </div>
-                <!-- Document preview container -->
-                <div id="document-preview" class="hidden">
+                <!-- Fallback document preview for non-Word files -->
+                <div id="document-preview" class="hidden h-full overflow-y-auto p-4">
                   <div class="bg-gray-100 p-4 rounded-lg">
                     <div class="flex items-center justify-between mb-4">
                       <div>
@@ -786,6 +745,26 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
           </div>
 
+          <!-- Formatting Analysis Panel -->
+          <div class="lg:col-span-1">
+            <div class="bg-white rounded-lg shadow h-full">
+              <div class="p-4 border-b">
+                <h3 class="font-semibold flex items-center">
+                  <i data-lucide="file-check" class="w-4 h-4 mr-2"></i>
+                  Format Analysis
+                </h3>
+              </div>
+              <div class="p-4" style="height: calc(100vh - 200px); overflow-y: auto;">
+                <div id="format-analysis-content">
+                  <div class="text-center py-8 text-gray-500">
+                    <i data-lucide="search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                    <p class="text-sm">Select a document to analyze formatting</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Comments Panel -->
           <div class="lg:col-span-1">
             <div class="bg-white rounded-lg shadow h-full">
@@ -797,6 +776,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   <div class="text-center py-8 text-gray-500">
                     <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
                     <p class="text-sm">No comments yet</p>
+                    <p class="text-xs">Comments will appear here as you add them</p>
                   </div>
                 </div>
                 
@@ -902,7 +882,6 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <?php echo htmlspecialchars($thesis['student_id'] ?? 'N/A'); ?> • <?php echo htmlspecialchars($thesis['program'] ?? 'N/A'); ?>
                           </div>
                         </div>
-                        <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
                       </div>
                     </button>
                   <?php endforeach; ?>
@@ -970,6 +949,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <option value="Chapter Submission">Chapter Submissions</option>
                 <option value="Feedback Given">Feedback</option>
                 <option value="Document Review">Document Reviews</option>
+                <option value="Comment Activity">Comments & Highlights</option>
                 <option value="Timeline Update">Timeline Updates</option>
               </select>
               <select id="activity-time-filter" class="text-sm border rounded-md px-3 py-2">
@@ -1264,10 +1244,11 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       
       // Document Review Functionality
       let currentChapterId = null;
-      let selectedText = '';
-      let selectedRange = null;
-      let currentHighlightColor = '#ffeb3b';
-      let isHighlightMode = false;
+      window.currentChapterId = null;
+      window.selectedText = '';
+      window.selectedRange = null;
+      window.currentHighlightColor = '#ffeb3b';
+      window.isHighlightMode = false;
       
       // Refresh document list
       document.getElementById('refresh-document-list')?.addEventListener('click', function() {
@@ -1295,7 +1276,14 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Load chapter content
       function loadChapter(chapterId, chapterTitle) {
+        console.log('=== loadChapter called ===');
+        console.log('Setting currentChapterId to:', chapterId);
+        
         currentChapterId = chapterId;
+        window.currentChapterId = chapterId;
+        
+        console.log('currentChapterId is now:', currentChapterId);
+        console.log('window.currentChapterId is now:', window.currentChapterId);
         
         // Update document title
         document.getElementById('document-title').textContent = chapterTitle;
@@ -1313,10 +1301,53 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               
               // Check if there are file uploads for this chapter
               if (chapter.files && chapter.files.length > 0) {
-                const latestFile = chapter.files[0]; // Get the most recent file
+                const files = chapter.files;
                 
-                // Hide regular content and show document preview
-                document.getElementById('document-content').classList.add('hidden');
+                // Check for Word documents using both file extension and MIME type
+                const wordFiles = files.filter(file => {
+                  const filename = file.original_filename.toLowerCase();
+                  const mimeType = file.file_type;
+                  
+                  // Check by extension
+                  const isWordByExtension = filename.endsWith('.doc') || filename.endsWith('.docx');
+                  
+                  // Check by MIME type
+                  const isWordByMimeType = mimeType === 'application/msword' || 
+                                           mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                                           mimeType.includes('word') || 
+                                           mimeType.includes('document');
+                  
+                  return isWordByExtension || isWordByMimeType;
+                });
+                
+                if (wordFiles.length > 0) {
+                  // Use Word viewer for Word documents
+                  const wordFile = wordFiles[0]; // Use the first Word file
+                  
+                  // Hide fallback preview and show Word viewer
+                  document.getElementById('document-preview').classList.add('hidden');
+                  
+                  // Initialize Word viewer (it will handle server limitations gracefully)
+                  initializeAdviserWordViewer(wordFile.id);
+                  
+                  // Set download link
+                  const downloadBtn = document.getElementById('download-document-btn');
+                  downloadBtn.href = `api/download_file.php?file_id=${wordFile.id}`;
+                  
+                  // Load formatting analysis
+                  loadFormatAnalysis(wordFile.id);
+                  
+                } else {
+                  // Show fallback preview for non-Word files
+                  const latestFile = files[0];
+                  
+                  // Hide Word viewer and show fallback preview
+                  document.getElementById('adviser-word-document-viewer').innerHTML = `
+                    <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+                      <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                      <p>Word viewer not available for this file type</p>
+                    </div>
+                  `;
                 document.getElementById('document-preview').classList.remove('hidden');
                 
                 // Update file information
@@ -1331,7 +1362,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 if (fileType.includes('pdf')) {
                   badgeClass = 'bg-red-100 text-red-800';
                   fileTypeText = 'PDF';
-                } else if (fileType.includes('word') || fileType.includes('document')) {
+                  } else if (fileType.includes('word') || fileType.includes('document') || 
+                           fileType === 'application/msword' || 
+                           fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
                   badgeClass = 'bg-blue-100 text-blue-800';
                   fileTypeText = 'Word';
                 }
@@ -1343,82 +1376,41 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 const downloadBtn = document.getElementById('download-document-btn');
                 downloadBtn.href = `api/download_file.php?file_id=${latestFile.id}`;
                 
+                // Load formatting analysis for non-Word files
+                loadFormatAnalysis(latestFile.id);
+                }
+                
                 // Show quick comment form
                 document.getElementById('quick-comment-form').classList.remove('hidden');
                 
                 // Load existing comments
                 loadComments(chapterId);
+                
               } else {
-                // No files uploaded, show regular content
+                // No files uploaded, show no content message
                 document.getElementById('document-preview').classList.add('hidden');
-                document.getElementById('document-content').classList.remove('hidden');
-                
-                // Display chapter content
-                const content = chapter.content || 'No content available for this chapter.';
-                
-                // Format content with paragraph IDs for commenting
-                let formattedContent = '';
-                if (content) {
-                  // Split content by paragraphs (double line breaks or single paragraphs)
-                  const paragraphs = content.split(/\n\s*\n|\r\n\s*\r\n|<\/p>\s*<p>|<\/p><p>/);
-                  
-                  formattedContent = paragraphs.map((paragraph, index) => {
-                    // Clean up paragraph
-                    const cleanParagraph = paragraph.replace(/<\/?p>/g, '').trim();
-                    if (!cleanParagraph) return ''; // Skip empty paragraphs
-                    
-                    // Create unique ID for paragraph
-                    const paragraphId = `paragraph-${chapterId}-${index}`;
-                    
-                    return `
-                      <div class="paragraph-container relative mb-4 group" id="${paragraphId}">
-                        <div class="paragraph-content">${cleanParagraph}</div>
-                        <button class="paragraph-comment-btn absolute right-0 top-0 bg-blue-100 text-blue-800 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity" 
-                                data-paragraph-id="${paragraphId}">
-                          <i data-lucide="message-circle" class="w-4 h-4"></i>
-                        </button>
+                document.getElementById('adviser-word-document-viewer').innerHTML = `
+                  <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+                    <i data-lucide="file-x" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                    <p>No files uploaded for this chapter</p>
                       </div>
                     `;
-                  }).join('');
-                } else {
-                  formattedContent = '<p>No content available for this chapter.</p>';
-                }
                 
-                document.getElementById('document-content').innerHTML = 
-                  `<div class="chapter-content" data-chapter-id="${chapterId}">${formattedContent}</div>`;
+                // Hide tools since there's no content
+                document.getElementById('document-tools').style.display = 'none';
+                document.getElementById('quick-comment-form').classList.add('hidden');
                 
-                // Initialize paragraph comment buttons
-                document.querySelectorAll('.paragraph-comment-btn').forEach(btn => {
-                  btn.addEventListener('click', function() {
-                    const paragraphId = this.dataset.paragraphId;
-                    const paragraphElement = document.getElementById(paragraphId);
-                    
-                    if (paragraphElement) {
-                      const contentElement = paragraphElement.querySelector('.paragraph-content');
-                      if (contentElement) {
-                        const paragraphContent = contentElement.textContent;
-                        openParagraphCommentModal(paragraphId, paragraphContent);
-                      } else {
-                        console.error('Paragraph content element not found');
-                        showError('Could not find paragraph content');
-                      }
-                    } else {
-                      console.error('Paragraph element not found:', paragraphId);
-                      showError('Could not find paragraph');
-                    }
-                  });
-                });
+                // Clear format analysis
+                document.getElementById('format-analysis-content').innerHTML = `
+                  <div class="text-center py-8 text-gray-500">
+                    <i data-lucide="search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                    <p class="text-sm">Select a document to analyze formatting</p>
+                  </div>
+                `;
+              }
                 
                 // Refresh Lucide icons
                 lucide.createIcons();
-                
-                // Load existing highlights and comments
-                loadHighlights(chapterId);
-                loadComments(chapterId);
-                
-                // Make text selectable for highlighting
-                makeTextSelectable();
-              }
             } else {
               showError('Failed to load chapter: ' + data.error);
             }
@@ -1429,9 +1421,53 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           });
       }
 
+      // Global Word viewer instance for adviser
+      let adviserWordViewer = null;
+
+      // Initialize Word viewer for adviser
+      function initializeAdviserWordViewer(fileId) {
+        // Debug: Log file ID and fetch file info
+        console.log('Initializing Word viewer for file ID:', fileId);
+        console.log('Current chapter ID:', window.currentChapterId);
+        
+        // Fetch debug info first
+        fetch(`api/document_review.php?action=debug_file&file_id=${fileId}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              console.log('File debug info:', data.debug_info);
+            } else {
+              console.error('Debug info error:', data.error);
+            }
+          })
+          .catch(error => console.error('Debug fetch error:', error));
+        
+        // Create or recreate the word viewer
+        const viewerContainer = document.getElementById('adviser-word-document-viewer');
+        viewerContainer.innerHTML = '<div id="adviser-word-viewer-content" class="h-full"></div>';
+        
+        // Initialize the Word viewer
+        adviserWordViewer = new WordViewer('adviser-word-viewer-content', {
+          showComments: true,
+          showToolbar: true,
+          allowZoom: true
+        });
+        
+        // Load the document
+        adviserWordViewer.loadDocument(fileId);
+        
+        // Load existing comments and highlights for this chapter
+        if (window.currentChapterId) {
+          setTimeout(() => {
+            loadComments(window.currentChapterId);
+            loadHighlights(window.currentChapterId);
+          }, 1000); // Wait for document to load
+        }
+      }
+
       // Load existing highlights
       function loadHighlights(chapterId) {
-        fetch(`api/document_review.php?action=get_highlights&chapter_id=${chapterId}`)
+        fetch(`api/comments.php?action=get_highlights&chapter_id=${chapterId}`)
           .then(response => response.json())
           .then(data => {
             if (data.success) {
@@ -1443,7 +1479,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Load existing comments
       function loadComments(chapterId) {
-        fetch(`api/document_review.php?action=get_comments&chapter_id=${chapterId}`)
+        fetch(`api/comments.php?action=get_comments&chapter_id=${chapterId}`)
           .then(response => response.json())
           .then(data => {
             if (data.success) {
@@ -1485,113 +1521,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         });
       }
 
-      // Display comments in the comments panel
-      function displayComments(comments) {
-        const commentsList = document.getElementById('comments-list');
-        
-        if (comments.length === 0) {
-          commentsList.innerHTML = `
-            <div class="text-center py-8 text-gray-500">
-              <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-              <p class="text-sm">No comments yet</p>
-            </div>
-          `;
-          lucide.createIcons();
-          return;
-        }
-        
-        // Process comments to extract paragraph IDs
-        comments.forEach(comment => {
-          if (comment.metadata) {
-            try {
-              const metadata = JSON.parse(comment.metadata);
-              comment.paragraphId = metadata.paragraph_id;
-            } catch (e) {
-              console.error('Error parsing comment metadata:', e);
-            }
-          }
-        });
-        
-        // Add visual indicators to paragraphs that have comments
-        comments.forEach(comment => {
-          if (comment.paragraphId) {
-            const paragraph = document.getElementById(comment.paragraphId);
-            if (paragraph) {
-              paragraph.classList.add('has-comments', 'pl-3');
-              paragraph.style.borderLeft = '3px solid #3b82f6';
-              
-              // Add click event to scroll to comment if not already added
-              if (!paragraph.dataset.hasClickEvent) {
-                paragraph.dataset.hasClickEvent = 'true';
-                paragraph.addEventListener('click', function() {
-                  const commentElement = document.querySelector(`.comment-item[data-paragraph-id="${comment.paragraphId}"]`);
-                  if (commentElement) {
-                    commentElement.scrollIntoView({ behavior: 'smooth' });
-                    commentElement.classList.add('highlight-comment');
-                    setTimeout(() => {
-                      if (commentElement) {
-                        commentElement.classList.remove('highlight-comment');
-                      }
-                    }, 2000);
-                  }
-                });
-              }
-            }
-          }
-        });
-        
-        commentsList.innerHTML = comments.map(comment => `
-          <div class="comment-item border rounded-lg p-3 mb-3 ${comment.paragraphId ? 'border-l-4 border-blue-500' : ''}" 
-               ${comment.paragraphId ? `data-paragraph-id="${comment.paragraphId}"` : ''}>
-            <div class="flex justify-between items-start mb-2">
-              <span class="font-medium text-sm">${comment.adviser_name}</span>
-              <span class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleDateString()}</span>
-            </div>
-            
-            ${comment.paragraphId ? `
-              <div class="bg-blue-50 p-2 rounded text-xs mb-2">
-                <div class="flex justify-between items-center">
-                  <strong class="text-blue-700">Paragraph Comment</strong>
-                  <button class="text-xs text-blue-600 hover:text-blue-800 goto-paragraph-btn" 
-                          data-paragraph-id="${comment.paragraphId}">
-                    Go to paragraph
-                  </button>
-                </div>
-              </div>
-            ` : ''}
-            
-            ${comment.highlighted_text ? `
-              <div class="bg-yellow-100 p-2 rounded text-xs mb-2">
-                <strong>Highlighted text:</strong> "${comment.highlighted_text}"
-              </div>
-            ` : ''}
-            
-            <p class="text-sm">${comment.comment_text}</p>
-            
-            <div class="flex justify-end mt-2">
-              <button class="text-xs text-blue-600 hover:text-blue-800" onclick="resolveComment(${comment.id})">
-                Mark as resolved
-              </button>
-            </div>
-          </div>
-        `).join('');
-        
-        // Add event listeners to "Go to paragraph" buttons
-        document.querySelectorAll('.goto-paragraph-btn').forEach(btn => {
-          btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const paragraphId = this.dataset.paragraphId;
-            const paragraph = document.getElementById(paragraphId);
-            if (paragraph) {
-              paragraph.scrollIntoView({ behavior: 'smooth' });
-              paragraph.classList.add('highlight-paragraph');
-              setTimeout(() => paragraph.classList.remove('highlight-paragraph'), 2000);
-            }
-          });
-        });
-        
-        lucide.createIcons();
-      }
+      // Display comments function removed - comments panel no longer exists
 
       // Make text selectable for highlighting
       function makeTextSelectable() {
@@ -1613,35 +1543,52 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Highlight button functionality
       document.getElementById('highlight-btn')?.addEventListener('click', function() {
-        isHighlightMode = !isHighlightMode;
-        this.textContent = isHighlightMode ? 'Cancel Highlight' : 'Highlight';
-        this.className = isHighlightMode ? 
+        window.isHighlightMode = !window.isHighlightMode;
+        this.textContent = window.isHighlightMode ? 'Cancel Highlight' : 'Highlight';
+        this.className = window.isHighlightMode ? 
           'px-3 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200' :
           'px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm hover:bg-yellow-200';
         
-        // Check if chapter content element exists before changing cursor style
+        // Change cursor style for Word viewer content
+        const wordContent = document.querySelector('.word-content');
+        if (wordContent) {
+          wordContent.style.cursor = window.isHighlightMode ? 'crosshair' : 'default';
+        }
+        
+        // Also check for legacy chapter content
         const chapterContent = document.querySelector('.chapter-content');
         if (chapterContent) {
-          chapterContent.style.cursor = isHighlightMode ? 'crosshair' : 'default';
+          chapterContent.style.cursor = window.isHighlightMode ? 'crosshair' : 'default';
+        }
+        
+        // Show instruction message
+        if (window.isHighlightMode) {
+          showNotification('Highlight mode active. Select text to highlight it.', 'info');
         }
       });
 
       // Comment button functionality
       document.getElementById('comment-btn')?.addEventListener('click', function() {
-        if (selectedText.trim()) {
-          document.getElementById('selected-text-preview').textContent = selectedText;
-          document.getElementById('comment-modal').classList.remove('hidden');
-        } else {
-          alert('Please select some text first to add a comment.');
-        }
+        // For Word viewer, we'll use paragraph-based commenting
+        showNotification('Click on any paragraph to add a comment to it.', 'info');
       });
       
       // Quick comment submission
       document.getElementById('submit-quick-comment')?.addEventListener('click', function() {
+        console.log('=== Quick comment submit clicked ===');
+        
         const commentText = document.getElementById('quick-comment-text').value.trim();
+        console.log('Comment text:', commentText);
+        console.log('Current chapter ID:', currentChapterId);
+        console.log('Window chapter ID:', window.currentChapterId);
         
         if (!commentText) {
-          alert('Please enter a comment');
+          showNotification('Please enter a comment', 'error');
+          return;
+        }
+        
+        if (!currentChapterId && !window.currentChapterId) {
+          showNotification('Please select a chapter first', 'error');
           return;
         }
         
@@ -1655,19 +1602,31 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       document.querySelectorAll('.color-option').forEach(button => {
         button.addEventListener('click', function() {
-          currentHighlightColor = this.dataset.color;
-          document.getElementById('current-color').style.backgroundColor = currentHighlightColor;
+          window.currentHighlightColor = this.dataset.color;
+          document.getElementById('current-color').style.backgroundColor = window.currentHighlightColor;
           document.getElementById('color-picker').classList.add('hidden');
         });
       });
 
       // Add comment function
       function addComment(commentText, highlightId = null) {
-        if (!currentChapterId) return;
+        console.log('=== addComment called ===');
+        console.log('currentChapterId:', currentChapterId);
+        console.log('window.currentChapterId:', window.currentChapterId);
+        console.log('commentText:', commentText);
+        
+        if (!currentChapterId && !window.currentChapterId) {
+          console.error('No chapter ID available');
+          showNotification('Please select a chapter first', 'error');
+          return;
+        }
+        
+        const chapterId = currentChapterId || window.currentChapterId;
+        console.log('Using chapter ID:', chapterId);
         
         const formData = new FormData();
         formData.append('action', 'add_comment');
-        formData.append('chapter_id', currentChapterId);
+        formData.append('chapter_id', chapterId);
         formData.append('comment_text', commentText);
         
         // If there's a highlight ID, include it
@@ -1681,41 +1640,49 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           formData.append('end_offset', selectedText.length);
         }
         
-        fetch('api/document_review.php', {
+        fetch('api/comments.php', {
           method: 'POST',
           body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+          console.log('Response status:', response.status);
+          return response.json();
+        })
         .then(data => {
+          console.log('Response data:', data);
           if (data.success) {
             // Clear comment field
             document.getElementById('quick-comment-text').value = '';
             
+            // Show success notification
+            showNotification('Comment added successfully!', 'success');
+            
             // Reload comments
-            loadComments(currentChapterId);
+            loadComments(chapterId);
           } else {
-            showError('Failed to add comment: ' + data.error);
+            console.error('Server error:', data.error);
+            showNotification('Failed to add comment: ' + data.error, 'error');
           }
         })
         .catch(error => {
           console.error('Error adding comment:', error);
-          showError('Failed to add comment');
+          showNotification('Failed to add comment: ' + error.message, 'error');
         });
       }
       
       // Add highlight function
       function addHighlight() {
-        if (!selectedText.trim() || !currentChapterId) return;
+        if (!window.selectedText.trim() || !window.currentChapterId) return;
         
         const formData = new FormData();
         formData.append('action', 'add_highlight');
-        formData.append('chapter_id', currentChapterId);
+        formData.append('chapter_id', window.currentChapterId);
         formData.append('start_offset', 0); // Simplified - in real implementation, calculate actual offsets
-        formData.append('end_offset', selectedText.length);
-        formData.append('highlighted_text', selectedText);
-        formData.append('highlight_color', currentHighlightColor);
+        formData.append('end_offset', window.selectedText.length);
+        formData.append('highlighted_text', window.selectedText);
+        formData.append('highlight_color', window.currentHighlightColor);
         
-        fetch('api/document_review.php', {
+        fetch('api/comments.php', {
           method: 'POST',
           body: formData
         })
@@ -1723,30 +1690,34 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .then(data => {
           if (data.success) {
             // Apply highlight visually
-            if (selectedRange) {
+            if (window.selectedRange) {
               const highlightSpan = document.createElement('mark');
-              highlightSpan.style.backgroundColor = currentHighlightColor;
+              highlightSpan.style.backgroundColor = window.currentHighlightColor;
               highlightSpan.className = 'highlight-marker';
               highlightSpan.dataset.highlightId = data.highlight_id;
               
               try {
-                selectedRange.surroundContents(highlightSpan);
+                window.selectedRange.surroundContents(highlightSpan);
               } catch (e) {
                 // Fallback for complex selections
-                highlightSpan.textContent = selectedText;
-                selectedRange.deleteContents();
-                selectedRange.insertNode(highlightSpan);
+                highlightSpan.textContent = window.selectedText;
+                window.selectedRange.deleteContents();
+                window.selectedRange.insertNode(highlightSpan);
               }
             }
             
             // Clear selection
             window.getSelection().removeAllRanges();
-            selectedText = '';
-            selectedRange = null;
+            window.selectedText = '';
+            window.selectedRange = null;
             
             // Exit highlight mode
-            isHighlightMode = false;
-            document.getElementById('highlight-btn').click();
+            window.isHighlightMode = false;
+            const highlightBtn = document.getElementById('highlight-btn');
+            if (highlightBtn) {
+              highlightBtn.textContent = 'Highlight';
+              highlightBtn.className = 'px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm hover:bg-yellow-200';
+            }
           } else {
             showError('Failed to add highlight: ' + data.error);
           }
@@ -1762,6 +1733,190 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         document.getElementById('comment-modal').classList.add('hidden');
         document.getElementById('comment-text').value = '';
       });
+
+      // Format Analysis Functions
+      function loadFormatAnalysis(fileId) {
+        const analysisContent = document.getElementById('format-analysis-content');
+        
+        // Show loading state
+        analysisContent.innerHTML = `
+          <div class="text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+            <p class="text-sm text-gray-500">Analyzing document format...</p>
+          </div>
+        `;
+        
+        // Fetch format analysis
+        fetch(`api/document_format_analyzer.php?file_id=${fileId}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              displayFormatAnalysis(data.analysis, data.file_info);
+            } else {
+              analysisContent.innerHTML = `
+                <div class="text-center py-8 text-red-500">
+                  <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3"></i>
+                  <p class="text-sm">Analysis failed: ${data.error}</p>
+                </div>
+              `;
+              lucide.createIcons();
+            }
+          })
+          .catch(error => {
+            console.error('Error loading format analysis:', error);
+            analysisContent.innerHTML = `
+              <div class="text-center py-8 text-red-500">
+                <i data-lucide="wifi-off" class="w-12 h-12 mx-auto mb-3"></i>
+                <p class="text-sm">Failed to load analysis</p>
+              </div>
+            `;
+            lucide.createIcons();
+          });
+      }
+
+      function displayFormatAnalysis(analysis, fileInfo) {
+        const analysisContent = document.getElementById('format-analysis-content');
+        
+        // Determine overall status color
+        let statusColor = 'text-gray-500';
+        let statusBg = 'bg-gray-100';
+        let statusIcon = 'file-question';
+        
+        switch(analysis.compliance_level) {
+          case 'excellent':
+            statusColor = 'text-green-700';
+            statusBg = 'bg-green-100';
+            statusIcon = 'check-circle';
+            break;
+          case 'good':
+            statusColor = 'text-blue-700';
+            statusBg = 'bg-blue-100';
+            statusIcon = 'info';
+            break;
+          case 'fair':
+            statusColor = 'text-yellow-700';
+            statusBg = 'bg-yellow-100';
+            statusIcon = 'alert-triangle';
+            break;
+          case 'poor':
+            statusColor = 'text-red-700';
+            statusBg = 'bg-red-100';
+            statusIcon = 'x-circle';
+            break;
+        }
+        
+        analysisContent.innerHTML = `
+          <!-- Overall Score -->
+          <div class="border rounded-lg p-4 mb-4 ${statusBg}">
+            <div class="flex items-center mb-2">
+              <i data-lucide="${statusIcon}" class="w-5 h-5 ${statusColor} mr-2"></i>
+              <h4 class="font-semibold ${statusColor}">Overall Score: ${analysis.overall_score}%</h4>
+            </div>
+            <p class="text-sm ${statusColor} capitalize">${analysis.compliance_level} compliance level</p>
+            ${analysis.total_issues > 0 ? `
+              <div class="mt-2 text-xs ${statusColor}">
+                ${analysis.critical_issues} critical issues • ${analysis.warnings} warnings
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- File Information -->
+          <div class="border rounded-lg p-3 mb-4 bg-gray-50">
+            <h4 class="font-medium text-sm mb-2">File Information</h4>
+            <div class="space-y-1 text-xs text-gray-600">
+              <div><strong>Name:</strong> ${fileInfo.name}</div>
+              <div><strong>Size:</strong> ${(fileInfo.size / (1024 * 1024)).toFixed(2)} MB</div>
+              <div><strong>Type:</strong> ${fileInfo.type}</div>
+            </div>
+          </div>
+
+          <!-- Categories Analysis -->
+          <div class="space-y-3">
+            ${Object.values(analysis.categories).map(category => {
+              let categoryColor = 'text-gray-600';
+              let categoryBg = 'bg-gray-100';
+              let categoryIcon = 'minus';
+              
+              switch(category.status) {
+                case 'good':
+                  categoryColor = 'text-green-600';
+                  categoryBg = 'bg-green-50';
+                  categoryIcon = 'check';
+                  break;
+                case 'warning':
+                  categoryColor = 'text-yellow-600';
+                  categoryBg = 'bg-yellow-50';
+                  categoryIcon = 'alert-triangle';
+                  break;
+                case 'error':
+                  categoryColor = 'text-red-600';
+                  categoryBg = 'bg-red-50';
+                  categoryIcon = 'x';
+                  break;
+              }
+              
+              return `
+                <div class="border rounded-lg p-3 ${categoryBg}">
+                  <div class="flex items-center justify-between mb-2">
+                    <h5 class="font-medium text-sm ${categoryColor}">${category.category}</h5>
+                    <div class="flex items-center">
+                      <i data-lucide="${categoryIcon}" class="w-4 h-4 ${categoryColor} mr-1"></i>
+                      <span class="text-xs ${categoryColor}">${category.score}%</span>
+                    </div>
+                  </div>
+                  <p class="text-xs ${categoryColor} mb-2">${category.message}</p>
+                  
+                  ${category.issues && category.issues.length > 0 ? `
+                    <div class="mb-2">
+                      <h6 class="text-xs font-medium ${categoryColor} mb-1">Issues:</h6>
+                      <ul class="text-xs ${categoryColor} space-y-1">
+                        ${category.issues.map(issue => `<li>• ${issue}</li>`).join('')}
+                      </ul>
+                    </div>
+                  ` : ''}
+                  
+                  ${category.recommendations && category.recommendations.length > 0 ? `
+                    <div>
+                      <h6 class="text-xs font-medium ${categoryColor} mb-1">Recommendations:</h6>
+                      <ul class="text-xs ${categoryColor} space-y-1">
+                        ${category.recommendations.map(rec => `<li>• ${rec}</li>`).join('')}
+                      </ul>
+                    </div>
+                  ` : ''}
+                  
+                  ${category.details ? `
+                    <details class="mt-2">
+                      <summary class="text-xs ${categoryColor} cursor-pointer">View Details</summary>
+                      <div class="mt-1 text-xs ${categoryColor} bg-white p-2 rounded border">
+                        <pre class="text-xs overflow-x-auto">${JSON.stringify(category.details, null, 2)}</pre>
+                      </div>
+                    </details>
+                  ` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Thesis Formatting Guidelines -->
+          <div class="border rounded-lg p-3 mt-4 bg-blue-50">
+            <h4 class="font-medium text-sm text-blue-700 mb-2 flex items-center">
+              <i data-lucide="book-open" class="w-4 h-4 mr-2"></i>
+              Thesis Formatting Standards
+            </h4>
+            <div class="text-xs text-blue-600 space-y-1">
+              <div>• <strong>Margins:</strong> 1 inch minimum on all sides</div>
+              <div>• <strong>Font:</strong> Times New Roman 12pt (body text)</div>
+              <div>• <strong>Spacing:</strong> Double spacing for body text</div>
+              <div>• <strong>Page Numbers:</strong> Required in header or footer</div>
+              <div>• <strong>Headings:</strong> Use consistent heading styles</div>
+              <div>• <strong>Paragraphs:</strong> 0.5-inch first-line indentation</div>
+            </div>
+          </div>
+        `;
+        
+        // Refresh Lucide icons
+        lucide.createIcons();
+      }
 
       document.getElementById('save-comment')?.addEventListener('click', function() {
         const commentText = document.getElementById('comment-text').value.trim();
@@ -1785,7 +1940,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         formData.append('action', 'remove_highlight');
         formData.append('highlight_id', highlightId);
         
-        fetch('api/document_review.php', {
+        fetch('api/comments.php', {
           method: 'POST',
           body: formData
         })
@@ -1815,7 +1970,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         formData.append('action', 'resolve_comment');
         formData.append('comment_id', commentId);
         
-        fetch('api/document_review.php', {
+        fetch('api/comments.php', {
           method: 'POST',
           body: formData
         })
@@ -1835,8 +1990,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Error display function
       function showError(message) {
-        // Use the notification system for errors
-        showNotification(message, 'error');
+        console.error(message);
+        // You can implement a proper error display here
+        alert(message);
       }
 
       // Close modal when clicking outside
@@ -2018,6 +2174,10 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       
       // Load feedback history for a student
       function loadFeedbackHistory(studentId, studentName) {
+        console.log("=== Loading feedback history ===");
+        console.log("Student ID:", studentId);
+        console.log("Student Name:", studentName);
+        
         const feedbackHistory = document.getElementById('feedback-history');
         feedbackHistory.innerHTML = `
           <div class="text-center py-4">
@@ -2026,16 +2186,32 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           </div>
         `;
         
+        const url = `api/feedback_management.php?action=get_adviser_feedback&student_id=${studentId}`;
+        console.log("Fetching from URL:", url);
+        
         // Fetch feedback history for this student
-        fetch(`api/feedback_management.php?action=get_adviser_feedback&student_id=${studentId}`)
+        fetch(url)
           .then(response => {
+            console.log("Feedback history response status:", response.status);
+            console.log("Feedback history response OK:", response.ok);
             if (!response.ok) {
               throw new Error('Failed to load feedback history');
             }
             return response.json();
           })
           .then(data => {
+            console.log("=== Feedback history response data ===");
+            console.log("Full response:", data);
+            console.log("Success:", data.success);
+            console.log("Feedback array:", data.feedback);
+            console.log("Feedback length:", data.feedback ? data.feedback.length : 'undefined');
+            
             if (data.success && data.feedback && data.feedback.length > 0) {
+              console.log("Displaying feedback items:");
+              data.feedback.forEach((feedback, index) => {
+                console.log(`Feedback ${index}:`, feedback);
+              });
+              
               feedbackHistory.innerHTML = data.feedback.map(feedback => `
                 <div class="border rounded-lg p-4">
                   <div class="flex justify-between items-start mb-2">
@@ -2070,6 +2246,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 });
               });
             } else {
+              console.log("No feedback to display - showing empty state");
               feedbackHistory.innerHTML = `
                 <div class="text-center py-8 text-gray-500">
                   <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
@@ -2142,12 +2319,11 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           
           if (!feedbackText) {
             console.log("ERROR: No feedback text entered");
-            alert('Please enter feedback text');
+            showNotification('Please enter feedback text', 'error');
             return;
           }
           
           console.log("About to call addFeedback...");
-          alert("DEBUG: About to call addFeedback with chapterId: " + chapterId);
           addFeedback(chapterId, feedbackText, feedbackType);
         });
       }
@@ -2160,32 +2336,31 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           feedbackText,
           feedbackType
         });
-        alert("DEBUG: addFeedback function called!");
         
         // Validate inputs before making the request
         if (!chapterId) {
           console.error("Chapter ID is missing or invalid:", chapterId);
-          alert('Error: Chapter ID is missing. Please select a chapter first.');
+          showNotification('Error: Chapter ID is missing. Please select a chapter first.', 'error');
           return;
         }
         
         if (!feedbackText || feedbackText.trim() === '') {
           console.error("Feedback text is empty");
-          alert('Error: Please enter feedback text.');
+          showNotification('Error: Please enter feedback text.', 'error');
           return;
         }
         
-        const formData = new FormData();
-        formData.append('action', 'add_feedback');
-        formData.append('chapter_id', chapterId);
-        formData.append('feedback_text', feedbackText);
-        formData.append('feedback_type', feedbackType);
+        // Try JSON instead of URLSearchParams
+        const data = {
+          action: 'add_feedback',
+          chapter_id: chapterId,
+          feedback_text: feedbackText,
+          feedback_type: feedbackType
+        };
         
-        // Debug: Log form data contents
-        console.log("Form data being sent:");
-        for (let [key, value] of formData.entries()) {
-          console.log(`  ${key}: ${value} (type: ${typeof value})`);
-        }
+        // Debug: Log data being sent
+        console.log("JSON data being sent:");
+        console.log(JSON.stringify(data, null, 2));
         
         console.log("=== ABOUT TO SEND FETCH REQUEST ===");
         console.log("URL: api/feedback_management.php");
@@ -2193,7 +2368,11 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         fetch('api/feedback_management.php', {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify(data)
         })
         .then(response => {
           console.log("Feedback response status:", response.status);
@@ -2233,8 +2412,8 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             // Reset form
             document.getElementById('feedback-text').value = '';
             
-            // Show success message
-            alert('Feedback added successfully');
+            // Show success message using notification system
+            showNotification('Feedback added successfully!', 'success');
             
             // Reload feedback history
             if (currentStudentId) {
@@ -2243,13 +2422,17 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               console.warn("currentStudentId is not set, skipping feedback history reload");
             }
           } else {
-            throw new Error(data.error || 'Failed to add feedback');
+            // Show more detailed error information
+            const errorMessage = data.error || data.message || 'Failed to add feedback';
+            console.error('Server returned error:', data);
+            console.error('Full server response:', JSON.stringify(data));
+            throw new Error(errorMessage);
           }
         })
         .catch(error => {
           console.error('Error adding feedback:', error);
           console.error('Error stack:', error.stack);
-          alert('Failed to add feedback: ' + error.message);
+          showNotification('Failed to add feedback: ' + error.message, 'error');
         });
       }
       
@@ -2489,7 +2672,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             renderSavedReports(data.saved_reports);
           } else {
             document.getElementById('saved-reports-list').innerHTML = 
-              '<div class="text-center py-4 text-gray-500"><i data-lucide="info" class="w-4 h-4 mx-auto mb-2"></i><p class="text-xs">No saved reports</p></div>';
+              '<div class="text-center py-4 text-gray-500"><p class="text-xs">No saved reports</p></div>';
           }
         })
         .catch(error => {
@@ -3041,58 +3224,120 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           </div>
         `;
         
-        // Fetch activity logs
-        fetch(`api/reports_analytics.php?action=recent_activity&days=${daysFilter}`)
-          .then(response => response.json())
-          .then(data => {
-            let activities = data.recent_activity || [];
-            
-            // Filter by type if selected
-            if (typeFilter) {
-              activities = activities.filter(activity => activity.activity_type === typeFilter);
-            }
-            
-            // Display activities
-            const logsHtml = activities.length ? activities.map(activity => `
-              <div class="flex items-start gap-3 p-4 border rounded-lg hover:bg-gray-50">
-                <div class="mt-1">
-                  ${getActivityIcon(activity.activity_type)}
-                </div>
-                <div class="flex-1">
-                  <div class="flex justify-between items-start">
-                    <div>
-                      <p class="font-medium">${activity.activity_type}</p>
-                      <p class="text-sm text-gray-600">${activity.details}</p>
-                    </div>
-                    <span class="text-xs text-gray-500">${formatDate(activity.activity_date)}</span>
-                  </div>
+        // If user selects "Comment Activity", load detailed comment logs
+        if (typeFilter === 'Comment Activity') {
+          fetch(`api/reports_analytics.php?action=comment_activity_logs&days=${daysFilter}`)
+            .then(response => response.json())
+            .then(data => {
+              const commentLogs = data.comment_activity_logs || [];
+              
+              const logsHtml = commentLogs.length ? commentLogs.map(log => `
+                <div class="flex items-start gap-3 p-4 border rounded-lg hover:bg-gray-50">
                   <div class="mt-1">
-                    <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                      ${activity.activity_count} ${activity.activity_count === 1 ? 'activity' : 'activities'}
-                    </span>
+                    ${getActivityIcon('Comment Activity')}
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex justify-between items-start">
+                      <div>
+                        <p class="font-medium">${log.activity_type}</p>
+                        <p class="text-sm text-gray-600">${log.description}</p>
+                        <div class="mt-1 text-xs text-gray-500">
+                          <span class="font-medium">${log.chapter_title}</span> • <span>${log.student_name}</span>
+                        </div>
+                      </div>
+                      <span class="text-xs text-gray-500">${formatDate(log.activity_date)}</span>
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-1">
+                      <span class="text-xs px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">
+                        ${log.details.action.replace('_', ' ')}
+                      </span>
+                      ${log.details.comment_length ? `
+                        <span class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">
+                          ${log.details.comment_length} chars
+                        </span>
+                      ` : ''}
+                      ${log.details.highlight_color ? `
+                        <span class="text-xs px-2 py-1 rounded-full" style="background-color: ${log.details.highlight_color}20; color: ${log.details.highlight_color};">
+                          ${log.details.highlight_color}
+                        </span>
+                      ` : ''}
+                    </div>
                   </div>
                 </div>
-              </div>
-            `).join('') : `
-              <div class="text-center py-8 text-gray-500">
-                <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-                <p>No activity logs found</p>
-              </div>
-            `;
-            
-            document.getElementById('activity-logs-list').innerHTML = logsHtml;
-            lucide.createIcons();
-          })
-          .catch(error => {
-            console.error('Error loading activity logs:', error);
-            document.getElementById('activity-logs-list').innerHTML = `
-              <div class="text-center py-8 text-red-500">
-                <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3"></i>
-                <p>Failed to load activity logs</p>
-              </div>
-            `;
-            lucide.createIcons();
-          });
+              `).join('') : `
+                <div class="text-center py-8 text-gray-500">
+                  <i data-lucide="message-square" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                  <p>No comment activity found</p>
+                </div>
+              `;
+              
+              document.getElementById('activity-logs-list').innerHTML = logsHtml;
+              lucide.createIcons();
+            })
+            .catch(error => {
+              console.error('Error loading comment activity logs:', error);
+              document.getElementById('activity-logs-list').innerHTML = `
+                <div class="text-center py-8 text-red-500">
+                  <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3"></i>
+                  <p>Failed to load comment activity logs</p>
+                </div>
+              `;
+              lucide.createIcons();
+            });
+        } else {
+          // Load general activity logs
+          fetch(`api/reports_analytics.php?action=recent_activity&days=${daysFilter}`)
+            .then(response => response.json())
+            .then(data => {
+              let activities = data.recent_activity || [];
+              
+              // Filter by type if selected
+              if (typeFilter) {
+                activities = activities.filter(activity => activity.activity_type === typeFilter);
+              }
+              
+              // Display activities
+              const logsHtml = activities.length ? activities.map(activity => `
+                <div class="flex items-start gap-3 p-4 border rounded-lg hover:bg-gray-50">
+                  <div class="mt-1">
+                    ${getActivityIcon(activity.activity_type)}
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex justify-between items-start">
+                      <div>
+                        <p class="font-medium">${activity.activity_type}</p>
+                        <p class="text-sm text-gray-600">${activity.details}</p>
+                      </div>
+                      <span class="text-xs text-gray-500">${formatDate(activity.activity_date)}</span>
+                    </div>
+                    <div class="mt-1">
+                      <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                        ${activity.activity_count} ${activity.activity_count === 1 ? 'activity' : 'activities'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              `).join('') : `
+                <div class="text-center py-8 text-gray-500">
+                  <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                  <p>No activity logs found</p>
+                </div>
+              `;
+              
+              document.getElementById('activity-logs-list').innerHTML = logsHtml;
+              lucide.createIcons();
+            })
+            .catch(error => {
+              console.error('Error loading activity logs:', error);
+              document.getElementById('activity-logs-list').innerHTML = `
+                <div class="text-center py-8 text-red-500">
+                  <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3"></i>
+                  <p>Failed to load activity logs</p>
+                </div>
+              `;
+              lucide.createIcons();
+            });
+        }
       }
       
       function getActivityIcon(type) {
@@ -3100,6 +3345,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           'Chapter Submission': '<i data-lucide="file-plus" class="w-5 h-5 text-green-600"></i>',
           'Feedback Given': '<i data-lucide="message-circle" class="w-5 h-5 text-blue-600"></i>',
           'Document Review': '<i data-lucide="file-check" class="w-5 h-5 text-purple-600"></i>',
+          'Comment Activity': '<i data-lucide="message-square" class="w-5 h-5 text-indigo-600"></i>',
           'Timeline Update': '<i data-lucide="clock" class="w-5 h-5 text-amber-600"></i>'
         };
         return iconMap[type] || '<i data-lucide="activity" class="w-5 h-5 text-gray-600"></i>';
@@ -3117,10 +3363,172 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       // Initialize activity logs when tab is clicked
       document.querySelector('[data-tab="activity-logs"]').addEventListener('click', loadActivityLogs);
       
+      // Initialize document review when tab is clicked
+      document.querySelector('[data-tab="document-review"]').addEventListener('click', loadAllStudentsForReview);
+      
       // Add filter change handlers
       document.getElementById('activity-type-filter').addEventListener('change', loadActivityLogs);
       document.getElementById('activity-time-filter').addEventListener('change', loadActivityLogs);
+      
+      // Add refresh button functionality
+      document.getElementById('refresh-document-list').addEventListener('click', loadAllStudentsForReview);
+      
+      // Load students initially if document review tab is active
+      const currentTab = new URLSearchParams(window.location.search).get('tab');
+      if (currentTab === 'document-review') {
+        // Small delay to ensure DOM is ready
+        setTimeout(loadAllStudentsForReview, 100);
+      }
     });
+
+    // Load all students for document review
+    function loadAllStudentsForReview() {
+      console.log("Loading all students for document review...");
+      
+      const loadingDiv = document.getElementById('loading-students');
+      const studentsList = document.getElementById('students-list');
+      const noStudentsDiv = document.getElementById('no-students');
+      
+      // Show loading state
+      loadingDiv.classList.remove('hidden');
+      studentsList.innerHTML = '';
+      noStudentsDiv.classList.add('hidden');
+      
+      fetch('api/document_review.php?action=get_all_students')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to load students');
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log("Students data:", data);
+          
+          // Hide loading state
+          loadingDiv.classList.add('hidden');
+          
+          if (data.success && data.students && data.students.length > 0) {
+            displayStudentsForReview(data.students);
+          } else {
+            // Show no students message
+            noStudentsDiv.classList.remove('hidden');
+          }
+        })
+        .catch(error => {
+          console.error('Error loading students:', error);
+          loadingDiv.classList.add('hidden');
+          
+          studentsList.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+              <p class="text-sm">Failed to load students</p>
+              <p class="text-xs text-red-500 mt-2">${error.message}</p>
+            </div>
+          `;
+          lucide.createIcons();
+        });
+    }
+
+    // Display students and their chapters
+    function displayStudentsForReview(students) {
+      const studentsList = document.getElementById('students-list');
+      
+      studentsList.innerHTML = students.map(student => {
+        let chaptersHtml = '';
+        let statusBadge = '';
+        
+        // Create status badge based on student progress
+        if (student.is_placeholder) {
+          statusBadge = '<span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">Not started</span>';
+        } else if (student.chapters && student.chapters.length > 0) {
+          const submittedCount = student.chapters.filter(ch => ch.status === 'submitted' || ch.status === 'approved').length;
+          statusBadge = `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-600 rounded-full">${submittedCount}/${student.chapters.length} chapters submitted</span>`;
+        } else {
+          statusBadge = '<span class="text-xs px-2 py-1 bg-orange-100 text-orange-600 rounded-full">Thesis created, no chapters</span>';
+        }
+        
+        if (student.chapters && student.chapters.length > 0 && !student.is_placeholder) {
+          chaptersHtml = student.chapters.map(chapter => {
+            const hasFiles = chapter.has_files;
+            const fileStatus = hasFiles ? 'has-files' : 'no-files';
+            const submittedClass = chapter.status === 'submitted' ? 'border-l-4 border-yellow-400' : '';
+            
+            return `
+              <button 
+                class="w-full text-left px-2 py-1 text-sm rounded hover:bg-blue-50 chapter-item ${fileStatus} ${submittedClass}"
+                data-chapter-id="${chapter.id}"
+                data-chapter-title="${chapter.title}"
+                data-has-files="${hasFiles ? 'true' : 'false'}">
+                <div class="flex justify-between items-center">
+                  <span>
+                    Ch. ${chapter.chapter_number}: ${chapter.title}
+                    ${hasFiles ? '<i data-lucide="file-text" class="inline-block w-4 h-4 ml-1 text-blue-500"></i>' : ''}
+                  </span>
+                  <span class="text-xs px-1 py-0.5 rounded
+                    ${chapter.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' : 
+                      (chapter.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800')}">
+                    ${chapter.status.charAt(0).toUpperCase() + chapter.status.slice(1)}
+                  </span>
+                </div>
+                ${hasFiles ? `
+                  <div class="text-xs text-gray-500 mt-1">
+                    ${chapter.files.length} file(s) uploaded
+                    <span class="text-xs text-gray-400">· ${new Date(chapter.files[0].uploaded_at).toLocaleDateString()}</span>
+                  </div>
+                ` : ''}
+              </button>
+            `;
+          }).join('');
+        } else {
+          const emptyMessage = student.is_placeholder 
+            ? 'Student has not started thesis work yet. They need to contact you to begin their thesis project.'
+            : 'No chapters created yet';
+          
+          chaptersHtml = `
+            <div class="text-center py-4 text-gray-500 bg-gray-50 rounded-md">
+              <i data-lucide="${student.is_placeholder ? 'user-x' : 'file-x'}" class="w-8 h-8 mx-auto mb-2 text-gray-300"></i>
+              <p class="text-xs">${emptyMessage}</p>
+              ${student.is_placeholder ? '<p class="text-xs text-gray-400 mt-1">Encourage them to set up their thesis topic and begin writing.</p>' : ''}
+            </div>
+          `;
+        }
+        
+        return `
+          <div class="border rounded-lg p-3 ${student.is_placeholder ? 'bg-gray-50' : 'bg-white'}">
+            <div class="flex justify-between items-start mb-2">
+              <h4 class="font-medium text-sm">${student.full_name}</h4>
+              ${statusBadge}
+            </div>
+            <p class="text-xs text-gray-600 mb-2 font-medium">${student.thesis_title}</p>
+            <div class="text-xs text-gray-400 mb-3">
+              Student ID: ${student.student_id} | ${student.program}
+            </div>
+            <div class="space-y-1">
+              ${chaptersHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      // Refresh icons
+      lucide.createIcons();
+      
+      // Re-attach event listeners to chapter items
+      document.querySelectorAll('.chapter-item').forEach(item => {
+        item.addEventListener('click', function() {
+          // Remove active class from all chapters
+          document.querySelectorAll('.chapter-item').forEach(ch => ch.classList.remove('bg-blue-100'));
+          
+          // Add active class to clicked chapter
+          this.classList.add('bg-blue-100');
+          
+          // Load the chapter
+          const chapterId = this.dataset.chapterId;
+          const chapterTitle = this.dataset.chapterTitle;
+          loadChapter(chapterId, chapterTitle);
+        });
+      });
+    }
 
     // Edit Student Modal Functions
     function openEditStudentModal(student) {

@@ -6,80 +6,119 @@ require_once '../includes/thesis_functions.php';
 
 // Require login
 $auth = new Auth();
-$auth->requireLogin();
+if (!$auth->isLoggedIn()) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Authentication required']);
+    exit;
+}
 
-// Get current user
 $user = $auth->getCurrentUser();
 $thesisManager = new ThesisManager();
 
-// Check if file ID is provided
-if (!isset($_GET['file_id']) || empty($_GET['file_id'])) {
-    die('File ID is required');
+// Get file ID from request
+$file_id = isset($_GET['file_id']) ? intval($_GET['file_id']) : 0;
+
+if ($file_id <= 0) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Valid file ID required']);
+    exit;
 }
 
-$file_id = intval($_GET['file_id']);
-
 // Get file information
-try {
-    $database = new Database();
-    $db = $database->getConnection();
-    
-    $sql = "SELECT f.*, c.thesis_id, t.student_id 
-            FROM file_uploads f
-            JOIN chapters c ON f.chapter_id = c.id
-            JOIN theses t ON c.thesis_id = t.id
-            WHERE f.id = :file_id";
-    $stmt = $db->prepare($sql);
-    $stmt->bindParam(':file_id', $file_id);
-    $stmt->execute();
-    $file = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$file) {
-        die('File not found');
-    }
-    
-    // Check permissions
-    $is_owner = ($user['role'] == 'student' && $file['student_id'] == $user['id']);
-    
-    // For advisers, check if they are assigned to this thesis
-    $is_adviser = false;
-    if ($user['role'] == 'adviser') {
-        $sql = "SELECT id FROM theses WHERE id = :thesis_id AND adviser_id = :adviser_id";
-        $stmt = $db->prepare($sql);
-        $stmt->bindParam(':thesis_id', $file['thesis_id']);
-        $stmt->bindParam(':adviser_id', $user['id']);
-        $stmt->execute();
-        $is_adviser = ($stmt->rowCount() > 0);
-    }
-    
-    $is_admin = ($user['role'] == 'admin');
-    
-    if (!$is_owner && !$is_adviser && !$is_admin) {
-        die('You do not have permission to download this file');
-    }
-    
-    // Check if file exists
-    if (!file_exists($file['file_path'])) {
-        die('File not found on server');
-    }
-    
-    // Set headers for download
-    header('Content-Description: File Transfer');
-    header('Content-Type: ' . $file['file_type']);
-    header('Content-Disposition: attachment; filename="' . $file['original_filename'] . '"');
-    header('Expires: 0');
-    header('Cache-Control: must-revalidate');
-    header('Pragma: public');
-    header('Content-Length: ' . filesize($file['file_path']));
-    
-    // Clear output buffer
-    ob_clean();
-    flush();
-    
-    // Read file and output to browser
-    readfile($file['file_path']);
+$file = $thesisManager->getFileById($file_id);
+
+if (!$file) {
+    http_response_code(404);
+    echo json_encode(['error' => 'File not found']);
     exit;
-    
-} catch (PDOException $e) {
-    die('Database error: ' . $e->getMessage());
-} 
+}
+
+// Security check - verify user has access to this file
+$chapter = $thesisManager->getChapterById($file['chapter_id']);
+if (!$chapter) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Chapter not found']);
+    exit;
+}
+
+$thesis = $thesisManager->getThesisById($chapter['thesis_id']);
+if (!$thesis) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Thesis not found']);
+    exit;
+}
+
+// Check if user has permission to access this file
+$hasAccess = false;
+
+if ($user['role'] === 'student' && $thesis['student_id'] == $user['id']) {
+    // Student can access their own files
+    $hasAccess = true;
+} elseif ($user['role'] === 'adviser' && $thesis['adviser_id'] == $user['id']) {
+    // Adviser can access files of their assigned students
+    $hasAccess = true;
+} elseif ($user['role'] === 'admin') {
+    // Admin can access all files
+    $hasAccess = true;
+}
+
+if (!$hasAccess) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Access denied']);
+    exit;
+}
+
+// Check if file exists on disk
+$file_path = '../' . $file['file_path'];
+if (!file_exists($file_path)) {
+    http_response_code(404);
+    echo json_encode(['error' => 'File not found on disk']);
+    exit;
+}
+
+// Set headers for file download
+$file_size = filesize($file_path);
+$file_name = $file['original_filename'];
+
+// Determine content type
+$content_type = 'application/octet-stream';
+$file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+
+switch ($file_ext) {
+    case 'pdf':
+        $content_type = 'application/pdf';
+        break;
+    case 'doc':
+        $content_type = 'application/msword';
+        break;
+    case 'docx':
+        $content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        break;
+    case 'txt':
+        $content_type = 'text/plain';
+        break;
+    case 'jpg':
+    case 'jpeg':
+        $content_type = 'image/jpeg';
+        break;
+    case 'png':
+        $content_type = 'image/png';
+        break;
+}
+
+// Clear output buffer
+while (ob_get_level()) {
+    ob_end_clean();
+}
+
+// Set headers
+header('Content-Type: ' . $content_type);
+header('Content-Length: ' . $file_size);
+header('Content-Disposition: attachment; filename="' . $file_name . '"');
+header('Cache-Control: private');
+header('Pragma: private');
+header('Expires: 0');
+
+// Output file
+readfile($file_path);
+exit; 

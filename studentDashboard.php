@@ -31,6 +31,9 @@ if ($thesis) {
   <title>Student Thesis Dashboard</title>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Word Viewer Styles and Scripts -->
+  <link rel="stylesheet" href="assets/css/word-viewer.css">
+  <script src="assets/js/word-viewer.js"></script>
   <style>
     .active-tab {
       @apply text-blue-600 font-semibold bg-blue-50 rounded-md transition-colors duration-200;
@@ -543,11 +546,11 @@ if ($thesis) {
                 <h3 class="font-semibold" id="student-document-title">Select a chapter to view feedback</h3>
                 <p class="text-sm text-gray-500" id="student-document-info"></p>
               </div>
-              <div class="p-4" style="height: calc(100vh - 200px); overflow-y: auto;">
-                <div id="student-document-content" class="prose max-w-none">
-                  <div class="text-center py-12 text-gray-500">
+              <div class="h-full" style="height: calc(100vh - 200px);">
+                <div id="word-document-viewer" class="h-full">
+                  <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
                     <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
-                    <p>Select a chapter from the left panel to view adviser feedback</p>
+                    <p>Select a chapter from the left panel to view the document in Word-like interface</p>
                   </div>
                 </div>
               </div>
@@ -638,7 +641,7 @@ if ($thesis) {
       document.getElementById('student-document-title').textContent = chapterTitle;
       document.getElementById('student-document-info').textContent = 'Loading chapter content...';
       
-      // Load chapter data
+      // Load chapter data first to get files
       fetch(`api/student_review.php?action=get_chapter&chapter_id=${chapterId}`)
         .then(response => response.json())
         .then(data => {
@@ -647,50 +650,28 @@ if ($thesis) {
             document.getElementById('student-document-info').textContent = 
               `Thesis: ${chapter.thesis_title}`;
             
-            // Display chapter content with highlights
-            let content = chapter.content || '';
-            
-            if (!content) {
-              // Check if there are uploaded files
-              const files = chapter.files || [];
-              if (files.length > 0) {
-                document.getElementById('student-document-content').innerHTML = `
-                  <div class="text-center py-8">
-                    <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-blue-300"></i>
-                    <p class="text-lg font-medium mb-2">Document Uploaded</p>
-                    <p class="text-gray-500 mb-4">This chapter has uploaded documents but no text content.</p>
-                    <div class="space-y-2 max-w-md mx-auto">
-                      ${files.map(file => `
-                        <div class="border rounded-lg p-3 hover:bg-blue-50 flex justify-between items-center">
-                          <div class="flex items-center">
-                            <i data-lucide="file-text" class="w-5 h-5 text-blue-500 mr-2"></i>
-                            <span>${file.original_filename}</span>
-                          </div>
-                          <a href="api/download_file.php?file_id=${file.id}" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
-                            Download
-                          </a>
-                        </div>
-                      `).join('')}
-                    </div>
-                  </div>
-                `;
-                lucide.createIcons();
-              } else {
-                document.getElementById('student-document-content').innerHTML = `
-                  <div class="text-center py-12 text-gray-500">
-                    <i data-lucide="file-x" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
-                    <p>No content available for this chapter</p>
-                  </div>
-                `;
-                lucide.createIcons();
-              }
-            } else {
-              // If we have content, display it with any highlights
-              document.getElementById('student-document-content').innerHTML = 
-                `<div class="student-chapter-content prose max-w-none" data-chapter-id="${chapterId}">${content}</div>`;
+            // Check if there are uploaded files
+            const files = chapter.files || [];
+            if (files.length > 0) {
+              // Find Word documents (.doc, .docx)
+              const wordFiles = files.filter(file => 
+                file.original_filename.toLowerCase().endsWith('.doc') || 
+                file.original_filename.toLowerCase().endsWith('.docx')
+              );
               
-              // Apply existing highlights
-              applyStudentHighlights(chapter.highlights || []);
+              if (wordFiles.length > 0) {
+                // Initialize Word viewer for the first Word document
+                initializeWordViewer(wordFiles[0].id);
+              } else {
+                // Show non-Word files with download links
+                showFilesList(files);
+              }
+            } else if (chapter.content) {
+              // Show text content if no files but content exists
+              showTextContent(chapter.content, chapterId);
+            } else {
+              // No content available
+              showNoContent();
             }
             
             // Load comments
@@ -706,27 +687,79 @@ if ($thesis) {
         });
     }
 
-    // Apply highlights to content for students (read-only)
-    function applyStudentHighlights(highlights) {
-      const contentElement = document.querySelector('.student-chapter-content');
-      if (!contentElement || !highlights.length) return;
+    // Global Word viewer instance
+    let wordViewer = null;
+
+    // Initialize Word viewer with a document
+    function initializeWordViewer(fileId) {
+      // Create or recreate the word viewer
+      const viewerContainer = document.getElementById('word-document-viewer');
+      viewerContainer.innerHTML = '<div id="word-viewer-content" class="h-full"></div>';
       
-      // For a simple implementation, we'll add visual indicators for highlights
-      // In a real implementation, you'd need more sophisticated text range handling
-      highlights.forEach(highlight => {
-        // Create a visual indicator that the text has been highlighted
-        const highlightNote = document.createElement('div');
-        highlightNote.className = 'highlight-note mb-2 p-2 border-l-4 border-yellow-400 bg-yellow-50';
-        highlightNote.innerHTML = `
-          <div class="text-xs text-gray-600 mb-1">Highlighted by ${highlight.adviser_name}</div>
-          <div class="text-sm font-medium" style="background-color: ${highlight.highlight_color}; padding: 2px 4px; border-radius: 3px;">
-            "${highlight.highlighted_text}"
-          </div>
-        `;
-        
-        // Insert at the beginning of content
-        contentElement.insertBefore(highlightNote, contentElement.firstChild);
+      // Initialize the Word viewer
+      wordViewer = new WordViewer('word-viewer-content', {
+        showComments: true,
+        showToolbar: true,
+        allowZoom: true
       });
+      
+      // Load the document
+      wordViewer.loadDocument(fileId);
+    }
+
+    // Show list of non-Word files
+    function showFilesList(files) {
+      const viewerContainer = document.getElementById('word-document-viewer');
+      viewerContainer.innerHTML = `
+        <div class="p-4 h-full overflow-y-auto">
+          <div class="text-center py-8">
+            <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-blue-300"></i>
+            <p class="text-lg font-medium mb-2">Documents Available</p>
+            <p class="text-gray-500 mb-4">The following documents are available for this chapter:</p>
+            <div class="space-y-2 max-w-md mx-auto">
+              ${files.map(file => `
+                <div class="border rounded-lg p-3 hover:bg-blue-50 flex justify-between items-center">
+                  <div class="flex items-center">
+                    <i data-lucide="file-text" class="w-5 h-5 text-blue-500 mr-2"></i>
+                    <span class="text-sm">${file.original_filename}</span>
+                  </div>
+                  <div class="flex space-x-2">
+                    ${(file.original_filename.toLowerCase().endsWith('.doc') || file.original_filename.toLowerCase().endsWith('.docx')) 
+                      ? `<button onclick="initializeWordViewer(${file.id})" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">View</button>` 
+                      : ''}
+                    <a href="api/download_file.php?file_id=${file.id}" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Download</a>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    // Show text content (fallback for chapters with text content)
+    function showTextContent(content, chapterId) {
+      const viewerContainer = document.getElementById('word-document-viewer');
+      viewerContainer.innerHTML = `
+        <div class="p-4 h-full overflow-y-auto">
+          <div class="student-chapter-content prose max-w-none" data-chapter-id="${chapterId}">
+            ${content}
+          </div>
+        </div>
+      `;
+    }
+
+    // Show no content message
+    function showNoContent() {
+      const viewerContainer = document.getElementById('word-document-viewer');
+      viewerContainer.innerHTML = `
+        <div class="h-full flex flex-col justify-center text-center py-12 text-gray-500">
+          <i data-lucide="file-x" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+          <p>No content available for this chapter</p>
+        </div>
+      `;
+      lucide.createIcons();
     }
 
     // Display comments for students
@@ -984,8 +1017,23 @@ if ($thesis) {
             if (response.success) {
               alert('File uploaded successfully!');
               document.getElementById('upload-modal').classList.add('hidden');
-              // Reload the page to show the newly uploaded file
-              window.location.reload();
+              
+              // Check if the uploaded file is a Word document and display it automatically
+              const uploadedFile = response.file_info;
+              if (uploadedFile && (uploadedFile.original_filename.toLowerCase().endsWith('.doc') || 
+                                  uploadedFile.original_filename.toLowerCase().endsWith('.docx'))) {
+                // If we're currently viewing the same chapter that was uploaded to, refresh the Word viewer
+                const uploadedChapterId = document.getElementById('upload-chapter-id').value;
+                if (studentCurrentChapterId == uploadedChapterId) {
+                  // Initialize Word viewer with the newly uploaded file
+                  setTimeout(() => {
+                    initializeWordViewer(uploadedFile.id);
+                  }, 1000); // Small delay to ensure upload processing is complete
+                }
+              }
+              
+              // Alternatively, reload the page to show the newly uploaded file in the chapter list
+              // window.location.reload();
             } else {
               alert('Error: ' + response.message);
             }

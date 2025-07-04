@@ -656,6 +656,19 @@ class ThesisManager {
         }
     }
     
+    // Get file by ID
+    public function getFileById($file_id) {
+        try {
+            $sql = "SELECT * FROM file_uploads WHERE id = :file_id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':file_id', $file_id);
+            $stmt->execute();
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+    
     // Get chapter by ID
     public function getChapterById($chapter_id) {
         try {
@@ -743,6 +756,30 @@ class ThesisManager {
             return $stmt->execute();
         } catch (PDOException $e) {
             return false;
+        }
+    }
+
+    // Get all students assigned to an adviser (including those without thesis entries)
+    public function getAdviserStudents($adviser_id) {
+        try {
+            $sql = "SELECT DISTINCT u.id, u.full_name, u.student_id, u.program, u.email,
+                           t.id as thesis_id, t.title as thesis_title, t.status as thesis_status,
+                           t.progress_percentage
+                    FROM users u
+                    LEFT JOIN theses t ON u.id = t.student_id AND t.adviser_id = :adviser_id
+                    WHERE u.role = 'student' 
+                    AND (t.adviser_id = :adviser_id2 OR u.id IN (
+                        SELECT student_id FROM theses WHERE adviser_id = :adviser_id3
+                    ))
+                    ORDER BY u.full_name";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':adviser_id', $adviser_id);
+            $stmt->bindParam(':adviser_id2', $adviser_id);
+            $stmt->bindParam(':adviser_id3', $adviser_id);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            return [];
         }
     }
 }

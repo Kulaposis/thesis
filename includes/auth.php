@@ -146,8 +146,10 @@ class Auth {
     }
 }
 
-// Handle AJAX requests
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+// Handle AJAX requests ONLY if this file is directly accessed
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && 
+    (strpos($_SERVER['REQUEST_URI'], 'auth.php') !== false || 
+     strpos($_SERVER['SCRIPT_NAME'], 'auth.php') !== false)) {
     header('Content-Type: application/json');
     
     $auth = new Auth();

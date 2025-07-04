@@ -209,10 +209,68 @@ function handleGetRequest($conn, $user) {
             break;
             
         case 'recent_activity':
-            // Get recent activity analysis
-            $days = isset($_GET['days']) ? (int)$_GET['days'] : 30;
-            $activity = getRecentActivityAnalysis($conn, $days);
-            echo json_encode(["recent_activity" => $activity]);
+            $days = isset($_GET['days']) ? intval($_GET['days']) : 30;
+            
+            $recent_activity = getRecentActivityAnalysis($conn, $days);
+            echo json_encode(["recent_activity" => $recent_activity]);
+            break;
+            
+        case 'comment_activity_logs':
+            $days = isset($_GET['days']) ? intval($_GET['days']) : 30;
+            $userId = $user['id']; // Current adviser
+            
+            $commentLogs = getCommentActivityLogs($userId, $days);
+            
+            // Format the logs for display
+            $formattedLogs = array_map(function($log) {
+                $details = json_decode($log['details'], true);
+                
+                // Create a user-friendly description based on the action
+                $description = '';
+                if ($log['event_type'] === 'comment_activity') {
+                    switch ($details['action']) {
+                        case 'add_comment':
+                            $description = "Added comment on {$details['chapter_title']} for {$details['student_name']}";
+                            if (!empty($details['comment_text_preview'])) {
+                                $description .= ": \"" . $details['comment_text_preview'] . "\"";
+                                if ($details['comment_length'] > 100) {
+                                    $description .= "...";
+                                }
+                            }
+                            break;
+                        case 'resolve_comment':
+                            $description = "Resolved comment on {$details['chapter_title']} for {$details['student_name']}";
+                            break;
+                    }
+                } elseif ($log['event_type'] === 'highlight_activity') {
+                    switch ($details['action']) {
+                        case 'add_highlight':
+                            $description = "Added highlight on {$details['chapter_title']} for {$details['student_name']}";
+                            if (!empty($details['highlighted_text_preview'])) {
+                                $description .= ": \"" . $details['highlighted_text_preview'] . "\"";
+                                if ($details['highlighted_text_length'] > 100) {
+                                    $description .= "...";
+                                }
+                            }
+                            break;
+                        case 'remove_highlight':
+                            $description = "Removed highlight on {$details['chapter_title']} for {$details['student_name']}";
+                            break;
+                    }
+                }
+                
+                return [
+                    'id' => $log['id'],
+                    'activity_type' => ucfirst(str_replace('_', ' ', $log['event_type'])),
+                    'description' => $description,
+                    'chapter_title' => $details['chapter_title'] ?? '',
+                    'student_name' => $details['student_name'] ?? '',
+                    'activity_date' => $log['formatted_date'],
+                    'details' => $details
+                ];
+            }, $commentLogs);
+            
+            echo json_encode(["comment_activity_logs" => $formattedLogs]);
             break;
             
         default:

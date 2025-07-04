@@ -28,6 +28,61 @@ $thesisManager = new ThesisManager();
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 switch ($action) {
+    case 'get_all_students':
+        // Get all students assigned to this adviser
+        $students = $thesisManager->getAdviserStudents($user['id']);
+        
+        if (empty($students)) {
+            echo json_encode([
+                'success' => true,
+                'students' => [],
+                'message' => 'No students assigned'
+            ]);
+            exit;
+        }
+        
+        // For each student, get their thesis and chapters
+        $studentsWithChapters = [];
+        foreach ($students as $student) {
+            // Determine if this is a real thesis or just a placeholder
+            $isPlaceholder = ($student['thesis_title'] === 'Untitled Thesis' || 
+                            $student['thesis_title'] === null || 
+                            $student['thesis_title'] === '');
+            
+            $studentData = [
+                'id' => $student['id'],
+                'full_name' => $student['full_name'],
+                'student_id' => $student['student_id'],
+                'program' => $student['program'],
+                'thesis_id' => $student['thesis_id'],
+                'thesis_title' => $isPlaceholder ? 'No thesis topic selected yet' : $student['thesis_title'],
+                'thesis_status' => $student['thesis_status'] ?: 'not_started',
+                'progress_percentage' => $student['progress_percentage'] ?: 0,
+                'is_placeholder' => $isPlaceholder,
+                'chapters' => []
+            ];
+            
+            // Get chapters if thesis exists and it's not a placeholder
+            if ($student['thesis_id'] && !$isPlaceholder) {
+                $chapters = $thesisManager->getThesisChapters($student['thesis_id']);
+                foreach ($chapters as $chapter) {
+                    // Get files for this chapter
+                    $files = $thesisManager->getChapterFiles($chapter['id']);
+                    $chapter['files'] = $files;
+                    $chapter['has_files'] = !empty($files);
+                    $studentData['chapters'][] = $chapter;
+                }
+            }
+            
+            $studentsWithChapters[] = $studentData;
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'students' => $studentsWithChapters
+        ]);
+        break;
+
     case 'get_chapters':
         if (isset($_GET['thesis_id'])) {
             $thesis_id = $_GET['thesis_id'];
@@ -211,6 +266,48 @@ switch ($action) {
         
         $comments = $thesisManager->getChapterComments($_GET['chapter_id']);
         echo json_encode(['success' => true, 'comments' => $comments]);
+        break;
+
+    case 'debug_file':
+        if (!isset($_GET['file_id'])) {
+            echo json_encode(['success' => false, 'error' => 'File ID required']);
+            break;
+        }
+        
+        $file_id = intval($_GET['file_id']);
+        
+        // Get database connection
+        $database = new Database();
+        $pdo = $database->getConnection();
+        
+        $sql = "SELECT f.*, c.title as chapter_title, t.title as thesis_title, u.full_name as student_name
+                FROM file_uploads f
+                JOIN chapters c ON f.chapter_id = c.id
+                JOIN theses t ON c.thesis_id = t.id
+                JOIN users u ON t.student_id = u.id
+                WHERE f.id = :file_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindParam(':file_id', $file_id);
+        $stmt->execute();
+        $file = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($file) {
+            $debug_info = [
+                'file_id' => $file['id'],
+                'original_filename' => $file['original_filename'],
+                'file_type' => $file['file_type'],
+                'file_path' => $file['file_path'],
+                'file_exists' => file_exists($file['file_path']),
+                'file_size' => file_exists($file['file_path']) ? filesize($file['file_path']) : 'N/A',
+                'chapter_title' => $file['chapter_title'],
+                'thesis_title' => $file['thesis_title'],
+                'student_name' => $file['student_name'],
+                'uploaded_at' => $file['uploaded_at']
+            ];
+            echo json_encode(['success' => true, 'debug_info' => $debug_info]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'File not found']);
+        }
         break;
 
     default:

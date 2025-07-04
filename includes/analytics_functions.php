@@ -1027,9 +1027,239 @@ function getRecentActivityAnalysis($conn, $days = 30) {
               WHERE f.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
               GROUP BY DATE(f.created_at)
               
+              UNION ALL
+              
+              SELECT 
+                'Comment Activity' as activity_type,
+                DATE(al.created_at) as activity_date,
+                COUNT(*) as activity_count,
+                GROUP_CONCAT(DISTINCT CONCAT(
+                  ua.full_name, ' - ', 
+                  JSON_UNQUOTE(JSON_EXTRACT(al.details, '$.action')),
+                  ' on Ch. ',
+                  JSON_UNQUOTE(JSON_EXTRACT(al.details, '$.chapter_number'))
+                ) SEPARATOR ', ') as details
+              FROM analytics_logs al
+              JOIN users ua ON al.user_id = ua.id
+              WHERE al.event_type IN ('comment_activity', 'highlight_activity')
+                AND al.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+              GROUP BY DATE(al.created_at)
+              
               ORDER BY activity_date DESC";
     
     $stmt = $conn->prepare($query);
-    $stmt->execute([$days, $days]);
+    $stmt->execute([$days, $days, $days]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Log comment-related activities
+ * 
+ * @param string $commentAction Type of comment action (add_comment, resolve_comment, edit_comment, delete_comment)
+ * @param int $userId User ID who performed the action
+ * @param int $commentId Comment ID
+ * @param int $chapterId Chapter ID where comment was made
+ * @param array|null $details Additional details about the comment action
+ * @return bool Success status
+ */
+function logCommentActivity($commentAction, $userId, $commentId, $chapterId, $details = null) {
+    try {
+        $database = new Database();
+        $conn = $database->getConnection();
+        
+        // Get additional context information
+        $contextQuery = "SELECT 
+                            c.title as chapter_title,
+                            c.chapter_number,
+                            t.title as thesis_title,
+                            t.student_id,
+                            us.full_name as student_name,
+                            ua.full_name as adviser_name
+                        FROM chapters c
+                        JOIN theses t ON c.thesis_id = t.id
+                        JOIN users us ON t.student_id = us.id
+                        JOIN users ua ON ua.id = ?
+                        WHERE c.id = ?";
+        
+        $contextStmt = $conn->prepare($contextQuery);
+        $contextStmt->execute([$userId, $chapterId]);
+        $context = $contextStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$context) {
+            error_log("Failed to get context for comment logging");
+            return false;
+        }
+        
+        // Prepare log details
+        $logDetails = [
+            'comment_id' => $commentId,
+            'chapter_id' => $chapterId,
+            'chapter_title' => $context['chapter_title'],
+            'chapter_number' => $context['chapter_number'],
+            'thesis_title' => $context['thesis_title'],
+            'student_id' => $context['student_id'],
+            'student_name' => $context['student_name'],
+            'adviser_name' => $context['adviser_name'],
+            'action' => $commentAction
+        ];
+        
+        // Merge with additional details if provided
+        if ($details) {
+            $logDetails = array_merge($logDetails, $details);
+        }
+        
+        // Log the event
+        $query = "INSERT INTO analytics_logs 
+                  (event_type, user_id, related_id, entity_type, details) 
+                  VALUES (?, ?, ?, ?, ?)";
+        
+        $stmt = $conn->prepare($query);
+        $detailsJson = json_encode($logDetails);
+        
+        $result = $stmt->execute([
+            'comment_activity',
+            $userId,
+            $commentId,
+            'comment',
+            $detailsJson
+        ]);
+        
+        if ($result) {
+            error_log("Comment activity logged: $commentAction for comment ID $commentId by user $userId");
+            return true;
+        } else {
+            error_log("Failed to log comment activity: " . implode(", ", $stmt->errorInfo()));
+            return false;
+        }
+        
+    } catch (Exception $e) {
+        error_log("Error logging comment activity: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Log highlight-related activities
+ * 
+ * @param string $highlightAction Type of highlight action (add_highlight, remove_highlight)
+ * @param int $userId User ID who performed the action
+ * @param int $highlightId Highlight ID
+ * @param int $chapterId Chapter ID where highlight was made
+ * @param array|null $details Additional details about the highlight action
+ * @return bool Success status
+ */
+function logHighlightActivity($highlightAction, $userId, $highlightId, $chapterId, $details = null) {
+    try {
+        $database = new Database();
+        $conn = $database->getConnection();
+        
+        // Get additional context information
+        $contextQuery = "SELECT 
+                            c.title as chapter_title,
+                            c.chapter_number,
+                            t.title as thesis_title,
+                            t.student_id,
+                            us.full_name as student_name,
+                            ua.full_name as adviser_name
+                        FROM chapters c
+                        JOIN theses t ON c.thesis_id = t.id
+                        JOIN users us ON t.student_id = us.id
+                        JOIN users ua ON ua.id = ?
+                        WHERE c.id = ?";
+        
+        $contextStmt = $conn->prepare($contextQuery);
+        $contextStmt->execute([$userId, $chapterId]);
+        $context = $contextStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$context) {
+            error_log("Failed to get context for highlight logging");
+            return false;
+        }
+        
+        // Prepare log details
+        $logDetails = [
+            'highlight_id' => $highlightId,
+            'chapter_id' => $chapterId,
+            'chapter_title' => $context['chapter_title'],
+            'chapter_number' => $context['chapter_number'],
+            'thesis_title' => $context['thesis_title'],
+            'student_id' => $context['student_id'],
+            'student_name' => $context['student_name'],
+            'adviser_name' => $context['adviser_name'],
+            'action' => $highlightAction
+        ];
+        
+        // Merge with additional details if provided
+        if ($details) {
+            $logDetails = array_merge($logDetails, $details);
+        }
+        
+        // Log the event
+        $query = "INSERT INTO analytics_logs 
+                  (event_type, user_id, related_id, entity_type, details) 
+                  VALUES (?, ?, ?, ?, ?)";
+        
+        $stmt = $conn->prepare($query);
+        $detailsJson = json_encode($logDetails);
+        
+        $result = $stmt->execute([
+            'highlight_activity',
+            $userId,
+            $highlightId,
+            'highlight',
+            $detailsJson
+        ]);
+        
+        if ($result) {
+            error_log("Highlight activity logged: $highlightAction for highlight ID $highlightId by user $userId");
+            return true;
+        } else {
+            error_log("Failed to log highlight activity: " . implode(", ", $stmt->errorInfo()));
+            return false;
+        }
+        
+    } catch (Exception $e) {
+        error_log("Error logging highlight activity: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get comment and highlight activity logs
+ * 
+ * @param int $userId User ID (adviser)
+ * @param int $days Number of days to look back
+ * @return array Activity logs
+ */
+function getCommentActivityLogs($userId, $days = 30) {
+    try {
+        $database = new Database();
+        $conn = $database->getConnection();
+        
+        $query = "SELECT 
+                    al.*,
+                    DATE_FORMAT(al.created_at, '%Y-%m-%d %H:%i:%s') as formatted_date
+                  FROM analytics_logs al
+                  WHERE al.user_id = ? 
+                    AND al.event_type IN ('comment_activity', 'highlight_activity')
+                    AND al.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  ORDER BY al.created_at DESC";
+        
+        $stmt = $conn->prepare($query);
+        $stmt->execute([$userId, $days]);
+        $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Parse the JSON details for better display
+        foreach ($logs as &$log) {
+            if ($log['details']) {
+                $log['details_parsed'] = json_decode($log['details'], true);
+            }
+        }
+        
+        return $logs;
+        
+    } catch (Exception $e) {
+        error_log("Error getting comment activity logs: " . $e->getMessage());
+        return [];
+    }
 }

@@ -68,11 +68,13 @@ if (isset($_FILES['thesis_document']) && $_FILES['thesis_document']['error'] == 
         // Update the chapter's file path
         $thesisManager->updateChapterFilePath($chapter_id, $result['file_id']);
         
+        // Get complete file information for response
+        $fileInfo = $thesisManager->getFileById($result['file_id']);
+        
         $response = [
             'success' => true, 
             'message' => 'File uploaded successfully',
-            'file_id' => $result['file_id'],
-            'filename' => $file['name']
+            'file_info' => $fileInfo
         ];
     } else {
         $response = ['success' => false, 'message' => 'Failed to upload file'];

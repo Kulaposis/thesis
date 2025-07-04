@@ -1,0 +1,40 @@
+# PHP
+*.log
+debug.log
+
+# Uploads directory - exclude actual uploaded files but keep structure
+uploads/*.docx
+uploads/*.pdf
+uploads/*.doc
+uploads/*.txt
+!uploads/.gitkeep
+
+# Test files (optional - you might want to keep some)
+test_*.php
+test_*.html
+
+# Database backups
+database_backups/*.sql
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Configuration files with sensitive data (if any)
+config/local_config.php 
