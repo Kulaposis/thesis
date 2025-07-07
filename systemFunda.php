@@ -644,100 +644,159 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       <!-- Document Review Tab Content -->
       <div id="document-review-content" class="tab-content hidden">
-        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 h-full">
-          <!-- Chapter Selection Panel -->
-          <div class="lg:col-span-1">
-            <div class="bg-white rounded-lg shadow p-4">
-              <div class="flex justify-between items-center mb-4">
-                <h3 class="font-semibold">Select Document to Review</h3>
-                <button id="refresh-document-list" class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200">
-                  <i data-lucide="refresh-cw" class="w-3 h-3 inline-block mr-1"></i> Refresh
+        <div class="flex h-screen relative">
+          <!-- Collapsible Sidebar -->
+          <div id="document-sidebar" class="w-80 bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out">
+            <!-- Sidebar Header -->
+            <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div class="flex justify-between items-center">
+                <h3 class="font-semibold text-gray-800">Document Navigation</h3>
+                <button id="toggle-sidebar" class="p-2 hover:bg-white/50 rounded-lg transition-colors">
+                  <i data-lucide="sidebar" class="w-4 h-4 text-gray-600"></i>
                 </button>
               </div>
-              <div id="chapter-list" class="space-y-2">
-                <!-- Loading state -->
-                <div id="loading-students" class="text-center py-4">
-                  <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                  <p class="mt-2 text-sm text-gray-500">Loading students...</p>
-                            </div>
-                
-                <!-- Students will be dynamically loaded here -->
-                <div id="students-list"></div>
-                
-                <!-- Empty state -->
-                <div id="no-students" class="text-center py-8 text-gray-500 hidden">
-                  <i data-lucide="users" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-                  <p class="text-sm">No students assigned for document review</p>
+            </div>
+
+            <!-- Students List -->
+            <div class="flex-1 overflow-y-auto">
+              <div class="p-4">
+                <div class="flex justify-between items-center mb-3">
+                  <h4 class="text-sm font-medium text-gray-700">Select Document</h4>
+                  <button id="refresh-document-list" class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 transition-colors">
+                    <i data-lucide="refresh-cw" class="w-3 h-3 inline-block mr-1"></i> Refresh
+                  </button>
                 </div>
+                
+                <div id="chapter-list" class="space-y-2">
+                  <!-- Loading state -->
+                  <div id="loading-students" class="text-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                    <p class="mt-2 text-sm text-gray-500">Loading students...</p>
+                  </div>
+                  
+                  <!-- Students will be dynamically loaded here -->
+                  <div id="students-list"></div>
+                  
+                  <!-- Empty state -->
+                  <div id="no-students" class="text-center py-12 text-gray-500 hidden">
+                    <i data-lucide="users" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                    <p class="text-sm">No students assigned for document review</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Analysis & Comments Quick View -->
+            <div class="border-t border-gray-200 p-4 bg-gray-50">
+              <div class="space-y-3">
+                <button id="toggle-analysis" class="w-full flex items-center justify-between p-2 text-left text-sm font-medium text-gray-700 hover:bg-white rounded-lg transition-colors">
+                  <span class="flex items-center">
+                    <i data-lucide="file-check" class="w-4 h-4 mr-2 text-blue-500"></i>
+                    Quick Analysis
+                  </span>
+                  <i data-lucide="chevron-right" class="w-4 h-4 transform transition-transform" id="analysis-chevron"></i>
+                </button>
+                
+                <button id="toggle-comments" class="w-full flex items-center justify-between p-2 text-left text-sm font-medium text-gray-700 hover:bg-white rounded-lg transition-colors">
+                  <span class="flex items-center">
+                    <i data-lucide="message-circle" class="w-4 h-4 mr-2 text-green-500"></i>
+                    Comments Panel
+                  </span>
+                  <i data-lucide="chevron-right" class="w-4 h-4 transform transition-transform" id="comments-chevron"></i>
+                </button>
               </div>
             </div>
           </div>
 
-          <!-- Document Viewer Panel -->
-          <div class="lg:col-span-2">
-            <div class="bg-white rounded-lg shadow h-full">
-              <div class="p-4 border-b flex justify-between items-center">
-                <div>
-                  <h3 class="font-semibold" id="document-title">Select a document to begin review</h3>
-                  <p class="text-sm text-gray-500" id="document-info"></p>
+          <!-- Main Document Viewer -->
+          <div class="flex-1 flex flex-col bg-gray-50">
+            <!-- Enhanced Toolbar -->
+            <div class="bg-white border-b border-gray-200 p-4">
+              <div class="flex justify-between items-center">
+                <div class="flex-1">
+                  <h3 class="font-semibold text-lg text-gray-800" id="document-title">Select a document to begin review</h3>
+                  <p class="text-sm text-gray-500 mt-1" id="document-info">Choose a student and chapter from the sidebar</p>
                 </div>
-                <div class="flex space-x-2" id="document-tools" style="display: none;">
-                  <button id="highlight-btn" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm hover:bg-yellow-200">
-                    <i data-lucide="highlighter" class="w-4 h-4 inline mr-1"></i>Highlight
-                  </button>
-                  <button id="comment-btn" class="px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm hover:bg-blue-200">
-                    <i data-lucide="message-circle" class="w-4 h-4 inline mr-1"></i>Comment
-                  </button>
-                  <div class="relative">
-                    <button id="color-picker-btn" class="px-3 py-1 bg-gray-100 text-gray-800 rounded text-sm hover:bg-gray-200">
-                      <div class="w-4 h-4 inline-block mr-1 rounded" id="current-color" style="background-color: #ffeb3b;"></div>
-                      Color
+                
+                <!-- Enhanced Document Tools -->
+                <div class="flex items-center space-x-3" id="document-tools" style="display: none;">
+                  <div class="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
+                    <button id="highlight-btn" class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm hover:bg-yellow-200 transition-colors flex items-center">
+                      <i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Highlight
                     </button>
-                    <div id="color-picker" class="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg p-2 hidden">
-                      <div class="grid grid-cols-4 gap-1">
-                        <button class="w-6 h-6 rounded border color-option" style="background-color: #ffeb3b;" data-color="#ffeb3b"></button>
-                        <button class="w-6 h-6 rounded border color-option" style="background-color: #4caf50;" data-color="#4caf50"></button>
-                        <button class="w-6 h-6 rounded border color-option" style="background-color: #2196f3;" data-color="#2196f3"></button>
-                        <button class="w-6 h-6 rounded border color-option" style="background-color: #ff9800;" data-color="#ff9800"></button>
-                        <button class="w-6 h-6 rounded border color-option" style="background-color: #f44336;" data-color="#f44336"></button>
-                        <button class="w-6 h-6 rounded border color-option" style="background-color: #9c27b0;" data-color="#9c27b0"></button>
-                        <button class="w-6 h-6 rounded border color-option" style="background-color: #607d8b;" data-color="#607d8b"></button>
-                        <button class="w-6 h-6 rounded border color-option" style="background-color: #795548;" data-color="#795548"></button>
+                    <button id="comment-btn" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm hover:bg-blue-200 transition-colors flex items-center">
+                      <i data-lucide="message-circle" class="w-4 h-4 mr-2"></i>Comment
+                    </button>
+                    
+                    <!-- Color Picker -->
+                    <div class="relative">
+                      <button id="color-picker-btn" class="px-3 py-2 bg-gray-100 text-gray-800 rounded-lg text-sm hover:bg-gray-200 transition-colors flex items-center">
+                        <div class="w-4 h-4 mr-2 rounded border" id="current-color" style="background-color: #ffeb3b;"></div>
+                        <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                      </button>
+                      <div id="color-picker" class="absolute top-full mt-2 right-0 bg-white border rounded-lg shadow-lg p-3 hidden z-50">
+                        <div class="grid grid-cols-4 gap-2">
+                          <button class="w-8 h-8 rounded-lg border-2 color-option hover:scale-110 transition-transform" style="background-color: #ffeb3b;" data-color="#ffeb3b" title="Yellow"></button>
+                          <button class="w-8 h-8 rounded-lg border-2 color-option hover:scale-110 transition-transform" style="background-color: #4caf50;" data-color="#4caf50" title="Green"></button>
+                          <button class="w-8 h-8 rounded-lg border-2 color-option hover:scale-110 transition-transform" style="background-color: #2196f3;" data-color="#2196f3" title="Blue"></button>
+                          <button class="w-8 h-8 rounded-lg border-2 color-option hover:scale-110 transition-transform" style="background-color: #ff9800;" data-color="#ff9800" title="Orange"></button>
+                          <button class="w-8 h-8 rounded-lg border-2 color-option hover:scale-110 transition-transform" style="background-color: #f44336;" data-color="#f44336" title="Red"></button>
+                          <button class="w-8 h-8 rounded-lg border-2 color-option hover:scale-110 transition-transform" style="background-color: #9c27b0;" data-color="#9c27b0" title="Purple"></button>
+                          <button class="w-8 h-8 rounded-lg border-2 color-option hover:scale-110 transition-transform" style="background-color: #607d8b;" data-color="#607d8b" title="Blue Grey"></button>
+                          <button class="w-8 h-8 rounded-lg border-2 color-option hover:scale-110 transition-transform" style="background-color: #795548;" data-color="#795548" title="Brown"></button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <a id="download-document-btn" href="#" class="px-3 py-1 bg-green-100 text-green-800 rounded text-sm hover:bg-green-200" target="_blank">
-                    <i data-lucide="download" class="w-4 h-4 inline mr-1"></i>Download
-                  </a>
+                  
+                  <div class="h-6 w-px bg-gray-300"></div>
+                  
+                  <!-- Document Actions -->
+                  <div class="flex items-center space-x-2">
+                    <button id="fullscreen-btn" class="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-lg text-sm hover:bg-indigo-200 transition-colors flex items-center" title="Open in Full Screen">
+                      <i data-lucide="maximize" class="w-4 h-4 mr-2"></i>Full Screen
+                    </button>
+                    <a id="download-document-btn" href="#" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm hover:bg-green-200 transition-colors flex items-center" target="_blank">
+                      <i data-lucide="download" class="w-4 h-4 mr-2"></i>Download
+                    </a>
+                  </div>
                 </div>
               </div>
-              <div class="h-full" style="height: calc(100vh - 200px);">
-                <div id="adviser-word-document-viewer" class="h-full">
-                  <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
-                    <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
-                    <p>Select a document from the left panel to start reviewing</p>
+            </div>
+
+            <!-- Document Viewer Area -->
+            <div class="flex-1 relative bg-gray-100">
+              <div id="adviser-word-document-viewer" class="w-full h-full">
+                <div class="flex items-center justify-center h-full text-gray-500">
+                  <div class="text-center">
+                    <i data-lucide="file-text" class="w-20 h-20 mx-auto mb-4 text-gray-300"></i>
+                    <h3 class="text-lg font-medium mb-2">No Document Selected</h3>
+                    <p class="text-sm">Select a student and chapter from the sidebar to start reviewing</p>
                   </div>
                 </div>
-                <!-- Fallback document preview for non-Word files -->
-                <div id="document-preview" class="hidden h-full overflow-y-auto p-4">
-                  <div class="bg-gray-100 p-4 rounded-lg">
+              </div>
+              
+              <!-- Fallback document preview for non-Word files -->
+              <div id="document-preview" class="hidden w-full h-full overflow-y-auto p-6">
+                <div class="max-w-4xl mx-auto">
+                  <div class="bg-white rounded-lg p-6 mb-6 shadow-sm">
                     <div class="flex items-center justify-between mb-4">
                       <div>
-                        <h4 id="file-name" class="font-medium"></h4>
-                        <p id="file-info" class="text-xs text-gray-500"></p>
+                        <h4 id="file-name" class="text-lg font-medium text-gray-800"></h4>
+                        <p id="file-info" class="text-sm text-gray-500"></p>
                       </div>
                       <div>
-                        <span id="file-type-badge" class="px-2 py-1 text-xs rounded"></span>
+                        <span id="file-type-badge" class="px-3 py-1 text-sm rounded-full"></span>
                       </div>
                     </div>
-                    <div class="text-center">
-                      <p class="mb-4">This document can be downloaded for review.</p>
-                      <p class="text-sm text-gray-500 mb-2">Use the highlight and comment tools to provide feedback.</p>
+                    <div class="text-center py-8">
+                      <p class="mb-4 text-gray-600">This document can be downloaded for detailed review.</p>
+                      <p class="text-sm text-gray-500 mb-4">Use the highlight and comment tools to provide feedback.</p>
                     </div>
                   </div>
                   
                   <!-- Text content preview for highlighting and commenting -->
-                  <div id="text-content-preview" class="mt-4 p-4 border rounded-lg bg-white">
+                  <div id="text-content-preview" class="bg-white rounded-lg p-6 shadow-sm">
                     <!-- Text content will be loaded here for highlighting -->
                   </div>
                 </div>
@@ -745,52 +804,95 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
           </div>
 
-          <!-- Formatting Analysis Panel -->
-          <div class="lg:col-span-1">
-            <div class="bg-white rounded-lg shadow h-full">
-              <div class="p-4 border-b">
-                <h3 class="font-semibold flex items-center">
-                  <i data-lucide="file-check" class="w-4 h-4 mr-2"></i>
-                  Format Analysis
-                </h3>
+          <!-- Right Panel Container -->
+          <div id="right-panels-container" class="fixed right-0 top-0 h-full z-20 pointer-events-none">
+            <!-- Tabbed Panel System -->
+            <div id="tabbed-panel" class="w-96 h-full bg-white border-l border-gray-200 shadow-xl transform translate-x-full transition-transform duration-300 ease-in-out pointer-events-auto">
+              <!-- Panel Tabs -->
+              <div class="flex border-b border-gray-200">
+                <button id="analysis-tab" class="flex-1 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-b-2 border-transparent transition-all">
+                  <i data-lucide="file-check" class="w-4 h-4 mr-2 inline"></i>
+                  Analysis
+                </button>
+                <button id="comments-tab" class="flex-1 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-b-2 border-transparent transition-all">
+                  <i data-lucide="message-circle" class="w-4 h-4 mr-2 inline"></i>
+                  Comments
+                </button>
+                <button id="close-panel" class="px-3 py-3 text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
               </div>
-              <div class="p-4" style="height: calc(100vh - 200px); overflow-y: auto;">
-                <div id="format-analysis-content">
-                  <div class="text-center py-8 text-gray-500">
-                    <i data-lucide="search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-                    <p class="text-sm">Select a document to analyze formatting</p>
+
+              <!-- Panel Content -->
+              <div class="flex-1 h-full overflow-hidden">
+                <!-- Analysis Panel Content -->
+                <div id="analysis-content" class="h-full hidden">
+                  <div class="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-gray-200">
+                    <h3 class="font-semibold text-gray-800 flex items-center">
+                      <i data-lucide="file-check" class="w-5 h-5 mr-2 text-purple-500"></i>
+                      Document Format Analysis
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1">AI-powered formatting and structure analysis</p>
+                  </div>
+                  <div class="flex-1 overflow-y-auto p-4" style="height: calc(100vh - 140px);">
+                    <div id="format-analysis-content">
+                      <div class="text-center py-12 text-gray-500">
+                        <i data-lucide="search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                        <p class="text-sm">Select a document to analyze formatting</p>
+                        <p class="text-xs text-gray-400 mt-2">Analysis will check structure, citations, and formatting compliance</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Comments Panel Content -->
+                <div id="comments-content" class="h-full hidden">
+                  <div class="p-4 bg-gradient-to-r from-green-50 to-blue-50 border-b border-gray-200">
+                    <h3 class="font-semibold text-gray-800 flex items-center">
+                      <i data-lucide="message-circle" class="w-5 h-5 mr-2 text-green-500"></i>
+                      Comments & Feedback
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1">Review and add feedback to the document</p>
+                  </div>
+                  <div class="flex-1 overflow-y-auto p-4" style="height: calc(100vh - 200px);">
+                    <div id="comments-list" class="space-y-3 mb-4">
+                      <div class="text-center py-12 text-gray-500">
+                        <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                        <p class="text-sm">No comments yet</p>
+                        <p class="text-xs mt-1 text-gray-400">Click on text in the document to add comments</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Fixed Quick Comment Form -->
+                  <div class="border-t border-gray-200 p-4 bg-gray-50">
+                    <h4 class="font-medium text-sm mb-3 text-gray-700">Add Quick Comment</h4>
+                    <div class="space-y-3">
+                      <textarea id="quick-comment-text" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" rows="3" placeholder="Type your general feedback here..."></textarea>
+                      <div class="flex justify-between items-center">
+                        <div class="text-xs text-gray-500">
+                          <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+                          For specific feedback, click on document text
+                        </div>
+                        <button id="submit-quick-comment" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center">
+                          <i data-lucide="send" class="w-4 h-4 mr-2"></i>
+                          Submit
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- Comments Panel -->
-          <div class="lg:col-span-1">
-            <div class="bg-white rounded-lg shadow h-full">
-              <div class="p-4 border-b">
-                <h3 class="font-semibold">Comments & Feedback</h3>
-              </div>
-              <div class="p-4" style="height: calc(100vh - 200px); overflow-y: auto;">
-                <div id="comments-list" class="space-y-3">
-                  <div class="text-center py-8 text-gray-500">
-                    <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-                    <p class="text-sm">No comments yet</p>
-                    <p class="text-xs">Comments will appear here as you add them</p>
-                  </div>
-                </div>
-                
-                <!-- Add quick comment form -->
-                <div id="quick-comment-form" class="mt-4 pt-4 border-t hidden">
-                  <h4 class="font-medium text-sm mb-2">Add Quick Comment</h4>
-                  <textarea id="quick-comment-text" class="w-full border rounded-md p-2 text-sm" rows="3" placeholder="Type your comment here..."></textarea>
-                  <div class="flex justify-end mt-2">
-                    <button id="submit-quick-comment" class="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700">
-                      Submit Comment
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <!-- Quick Access Floating Buttons -->
+            <div id="panel-triggers" class="absolute right-4 top-1/2 transform -translate-y-1/2 space-y-3 pointer-events-auto">
+              <button id="trigger-analysis" class="w-12 h-12 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-all duration-200 hover:scale-110 flex items-center justify-center" title="Format Analysis">
+                <i data-lucide="file-check" class="w-5 h-5"></i>
+              </button>
+              <button id="trigger-comments" class="w-12 h-12 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700 transition-all duration-200 hover:scale-110 flex items-center justify-center" title="Comments & Feedback">
+                <i data-lucide="message-circle" class="w-5 h-5"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -3578,6 +3680,249 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               alert('Error updating student');
             });
     }
+
+    // Enhanced Document Review UI Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      // Sidebar toggle functionality
+      const sidebarToggle = document.getElementById('toggle-sidebar');
+      const sidebar = document.getElementById('document-sidebar');
+      let sidebarCollapsed = false;
+
+      if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', function() {
+          sidebarCollapsed = !sidebarCollapsed;
+          if (sidebarCollapsed) {
+            sidebar.style.width = '60px';
+            const content = sidebar.querySelector('.flex-1');
+            const quickView = sidebar.querySelector('.border-t');
+            if (content) content.style.display = 'none';
+            if (quickView) quickView.style.display = 'none';
+          } else {
+            sidebar.style.width = '320px';
+            const content = sidebar.querySelector('.flex-1');
+            const quickView = sidebar.querySelector('.border-t');
+            if (content) content.style.display = 'block';
+            if (quickView) quickView.style.display = 'block';
+          }
+        });
+      }
+
+      // Tabbed Panel System
+      const tabbedPanel = document.getElementById('tabbed-panel');
+      const analysisTab = document.getElementById('analysis-tab');
+      const commentsTab = document.getElementById('comments-tab');
+      const analysisContent = document.getElementById('analysis-content');
+      const commentsContent = document.getElementById('comments-content');
+      const closePanel = document.getElementById('close-panel');
+      const triggerAnalysis = document.getElementById('trigger-analysis');
+      const triggerComments = document.getElementById('trigger-comments');
+      const toggleAnalysis = document.getElementById('toggle-analysis');
+      const toggleComments = document.getElementById('toggle-comments');
+      const analysisChevron = document.getElementById('analysis-chevron');
+      const commentsChevron = document.getElementById('comments-chevron');
+
+      let currentActiveTab = null;
+
+      function openPanel(tabType) {
+        // Show the panel
+        tabbedPanel.classList.remove('translate-x-full');
+        
+        // Reset all tabs
+        analysisTab.classList.remove('border-blue-500', 'text-blue-600', 'bg-blue-50');
+        commentsTab.classList.remove('border-green-500', 'text-green-600', 'bg-green-50');
+        analysisContent.classList.add('hidden');
+        commentsContent.classList.add('hidden');
+        
+        // Activate the selected tab
+        if (tabType === 'analysis') {
+          analysisTab.classList.add('border-blue-500', 'text-blue-600', 'bg-blue-50');
+          analysisContent.classList.remove('hidden');
+          currentActiveTab = 'analysis';
+          if (analysisChevron) analysisChevron.classList.add('rotate-90');
+        } else if (tabType === 'comments') {
+          commentsTab.classList.add('border-green-500', 'text-green-600', 'bg-green-50');
+          commentsContent.classList.remove('hidden');
+          currentActiveTab = 'comments';
+          if (commentsChevron) commentsChevron.classList.add('rotate-90');
+        }
+      }
+
+      function closeTabPanel() {
+        tabbedPanel.classList.add('translate-x-full');
+        currentActiveTab = null;
+        if (analysisChevron) analysisChevron.classList.remove('rotate-90');
+        if (commentsChevron) commentsChevron.classList.remove('rotate-90');
+      }
+
+      // Floating button triggers
+      if (triggerAnalysis) {
+        triggerAnalysis.addEventListener('click', () => openPanel('analysis'));
+      }
+
+      if (triggerComments) {
+        triggerComments.addEventListener('click', () => openPanel('comments'));
+      }
+
+      // Sidebar button triggers (maintain compatibility)
+      if (toggleAnalysis) {
+        toggleAnalysis.addEventListener('click', () => {
+          if (currentActiveTab === 'analysis') {
+            closeTabPanel();
+          } else {
+            openPanel('analysis');
+          }
+        });
+      }
+
+      if (toggleComments) {
+        toggleComments.addEventListener('click', () => {
+          if (currentActiveTab === 'comments') {
+            closeTabPanel();
+          } else {
+            openPanel('comments');
+          }
+        });
+      }
+
+      // Tab clicks
+      if (analysisTab) {
+        analysisTab.addEventListener('click', () => openPanel('analysis'));
+      }
+
+      if (commentsTab) {
+        commentsTab.addEventListener('click', () => openPanel('comments'));
+      }
+
+      if (closePanel) {
+        closePanel.addEventListener('click', closeTabPanel);
+      }
+
+      // Fullscreen functionality
+      const fullscreenBtn = document.getElementById('fullscreen-btn');
+      const closeFullscreen = document.getElementById('close-fullscreen');
+
+      if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', function() {
+          const documentViewer = document.getElementById('adviser-word-document-viewer');
+          const documentTitle = document.getElementById('document-title').textContent;
+          
+          if (documentViewer && documentViewer.innerHTML.trim() !== '') {
+            // Create fullscreen view
+            openFullscreenView(documentViewer.innerHTML, documentTitle);
+          }
+        });
+      }
+
+      // Color picker functionality
+      const colorPickerBtn = document.getElementById('color-picker-btn');
+      const colorPicker = document.getElementById('color-picker');
+      const currentColor = document.getElementById('current-color');
+
+      if (colorPickerBtn) {
+        colorPickerBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          colorPicker.classList.toggle('hidden');
+        });
+      }
+
+      // Close color picker when clicking outside
+      document.addEventListener('click', function(e) {
+        if (colorPicker && !colorPicker.contains(e.target) && !colorPickerBtn.contains(e.target)) {
+          colorPicker.classList.add('hidden');
+        }
+      });
+
+      // Color selection
+      const colorOptions = document.querySelectorAll('.color-option');
+      colorOptions.forEach(option => {
+        option.addEventListener('click', function() {
+          const color = this.dataset.color;
+          currentColor.style.backgroundColor = color;
+          colorPicker.classList.add('hidden');
+          
+          // Update highlight color globally
+          window.currentHighlightColor = color;
+        });
+      });
+
+      // Initialize highlight color
+      window.currentHighlightColor = '#ffeb3b';
+    });
+
+    // Fullscreen view function
+    function openFullscreenView(content, title) {
+      // Create fullscreen modal if it doesn't exist
+      let fullscreenModal = document.getElementById('document-fullscreen-modal');
+      if (!fullscreenModal) {
+        fullscreenModal = document.createElement('div');
+        fullscreenModal.id = 'document-fullscreen-modal';
+        fullscreenModal.className = 'document-fullscreen-modal';
+        fullscreenModal.innerHTML = `
+          <div class="fullscreen-header">
+            <div class="fullscreen-title" id="fullscreen-document-title">${title}</div>
+            <div class="flex items-center space-x-4">
+              <div class="flex items-center space-x-2">
+                <button id="fullscreen-highlight-btn" class="toolbar-action-btn">
+                  <i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Highlight
+                </button>
+                <button id="fullscreen-comment-btn" class="toolbar-action-btn">
+                  <i data-lucide="message-circle" class="w-4 h-4 mr-2"></i>Comment
+                </button>
+                <a id="fullscreen-download-btn" href="#" class="toolbar-action-btn" target="_blank">
+                  <i data-lucide="download" class="w-4 h-4 mr-2"></i>Download
+                </a>
+              </div>
+              <button id="close-fullscreen" class="fullscreen-close">
+                <i data-lucide="x" class="w-4 h-4 mr-2"></i>Close
+              </button>
+            </div>
+          </div>
+          <div class="fullscreen-content">
+            <div class="fullscreen-document" id="fullscreen-document-content">
+              ${content}
+            </div>
+          </div>
+        `;
+        document.body.appendChild(fullscreenModal);
+        lucide.createIcons();
+
+        // Add close functionality
+        const closeBtn = fullscreenModal.querySelector('#close-fullscreen');
+        closeBtn.addEventListener('click', function() {
+          fullscreenModal.classList.remove('active');
+          document.body.style.overflow = 'auto';
+        });
+
+        // Copy download link
+        const downloadBtn = document.getElementById('download-document-btn');
+        const fullscreenDownloadBtn = fullscreenModal.querySelector('#fullscreen-download-btn');
+        if (downloadBtn && fullscreenDownloadBtn) {
+          fullscreenDownloadBtn.href = downloadBtn.href;
+        }
+      } else {
+        // Update existing modal
+        fullscreenModal.querySelector('#fullscreen-document-title').textContent = title;
+        fullscreenModal.querySelector('#fullscreen-document-content').innerHTML = content;
+        lucide.createIcons();
+      }
+
+      // Show the modal
+      fullscreenModal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+
+      // Handle ESC key to close
+      const handleEscape = function(e) {
+        if (e.key === 'Escape') {
+          fullscreenModal.classList.remove('active');
+          document.body.style.overflow = 'auto';
+          document.removeEventListener('keydown', handleEscape);
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+    }
   </script>
+
+  <!-- Document Fullscreen Modal (will be created dynamically) -->
+
 </body>
 </html> 

@@ -30,7 +30,6 @@ class WordViewer {
         this.container.innerHTML = `
             <div class="word-viewer">
                 <div class="word-document">
-                    ${this.options.showToolbar ? this.createToolbar() : ''}
                     <div class="word-page">
                         <div class="word-content" id="word-content">
                             <div class="word-loading">
@@ -40,19 +39,7 @@ class WordViewer {
                         </div>
                     </div>
                 </div>
-                ${this.options.showComments ? this.createSidebar() : ''}
                 ${this.options.allowZoom ? this.createZoomControls() : ''}
-                <div class="word-controls">
-                    <button class="word-control-btn" id="print-btn" title="Print Document">
-                        <i data-lucide="printer" class="w-4 h-4"></i>
-                    </button>
-                    <button class="word-control-btn" id="download-btn" title="Download Document">
-                        <i data-lucide="download" class="w-4 h-4"></i>
-                    </button>
-                    <button class="word-control-btn" id="comments-btn" title="Toggle Comments">
-                        <i data-lucide="message-circle" class="w-4 h-4"></i>
-                    </button>
-                </div>
             </div>
         `;
         
@@ -76,26 +63,7 @@ class WordViewer {
         `;
     }
     
-    createSidebar() {
-        return `
-            <div class="word-sidebar" id="word-sidebar">
-                <div class="word-sidebar-header">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0; font-size: 14px;">Comments</h3>
-                        <button class="zoom-btn" id="close-sidebar">
-                            <i data-lucide="x" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="word-sidebar-content" id="sidebar-content">
-                    <div class="text-center py-8 text-gray-500">
-                        <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-                        <p class="text-sm">No comments yet</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
+
     
     createZoomControls() {
         return `
@@ -120,17 +88,6 @@ class WordViewer {
             if (zoomIn) zoomIn.addEventListener('click', () => this.zoom(10));
             if (zoomOut) zoomOut.addEventListener('click', () => this.zoom(-10));
         }
-        
-        // Control buttons
-        const printBtn = document.getElementById('print-btn');
-        const downloadBtn = document.getElementById('download-btn');
-        const commentsBtn = document.getElementById('comments-btn');
-        const closeSidebar = document.getElementById('close-sidebar');
-        
-        if (printBtn) printBtn.addEventListener('click', () => this.print());
-        if (downloadBtn) downloadBtn.addEventListener('click', () => this.download());
-        if (commentsBtn) commentsBtn.addEventListener('click', () => this.toggleComments());
-        if (closeSidebar) closeSidebar.addEventListener('click', () => this.toggleComments());
         
         // Initialize Lucide icons after events
         if (typeof lucide !== 'undefined') {
@@ -250,7 +207,9 @@ class WordViewer {
             contentDiv.innerHTML = `
                 <div class="word-error">
                     <i data-lucide="file-x" class="word-error-icon"></i>
-                    <p>No content could be extracted from this document.</p>
+                    <h3>No Content Available</h3>
+                    <p>No readable content could be extracted from this document.</p>
+                    <p class="text-sm mt-2">Try downloading the document to view it in its original format.</p>
                 </div>
             `;
             lucide.createIcons();
@@ -263,12 +222,18 @@ class WordViewer {
             let cssClass = 'word-paragraph';
             let content = item.content;
             
+            // Skip empty or very short content that might be artifacts
+            if (!content || content.trim().length < 3) {
+                return;
+            }
+            
             // Determine paragraph type based on content
             if (item.type === 'heading' || content.match(/^(Chapter|CHAPTER)\s+\d+/i)) {
                 cssClass += ' word-heading-1';
-            } else if (content.match(/^\d+\.\d+\s+/)) {
+            } else if (content.match(/^\d+\.\d+\s+/) || content.match(/^[IVX]+\.\s+/)) {
                 cssClass += ' word-heading-2';
-            } else if (content.match(/^\d+\.\s+/) || content.match(/^[A-Z][a-z]+:/) || content.length < 50) {
+            } else if (content.match(/^\d+\.\s+/) || content.match(/^[A-Z][a-z]+:/) || 
+                      (content.length < 100 && content.match(/^[A-Z][A-Z\s]+$/))) {
                 cssClass += ' word-heading-3';
             }
             
@@ -279,11 +244,25 @@ class WordViewer {
                 <div class="${cssClass}" id="${paragraphId}" data-paragraph-id="${paragraphId}">
                     ${content}
                     <div class="comment-indicator" style="display: none;">
-                        <i data-lucide="message-circle" class="w-3 h-3"></i>
+                        <i data-lucide="message-circle" class="w-4 h-4"></i>
                     </div>
                 </div>
             `;
         });
+        
+        // If we still have no content after filtering, show error
+        if (!html.trim()) {
+            contentDiv.innerHTML = `
+                <div class="word-error">
+                    <i data-lucide="file-x" class="word-error-icon"></i>
+                    <h3>Document Processing Issue</h3>
+                    <p>The document content could not be properly processed for display.</p>
+                    <p class="text-sm mt-2">Please try downloading the document to view it in its original format.</p>
+                </div>
+            `;
+            lucide.createIcons();
+            return;
+        }
         
         contentDiv.innerHTML = html;
         
@@ -700,12 +679,7 @@ class WordViewer {
         }
     }
     
-    toggleComments() {
-        const sidebar = document.getElementById('word-sidebar');
-        if (sidebar) {
-            sidebar.classList.toggle('open');
-        }
-    }
+
     
     print() {
         window.print();
