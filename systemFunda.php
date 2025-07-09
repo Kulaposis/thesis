@@ -1381,6 +1381,19 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         console.log('=== loadChapter called ===');
         console.log('Setting currentChapterId to:', chapterId);
         
+        // Validate chapter ID
+        if (!chapterId || chapterId === 'undefined' || chapterId === 'null') {
+          showError('Invalid chapter ID. Please try refreshing the page.');
+          return;
+        }
+        
+        // Wait for students to finish loading if they're still loading
+        if (isLoadingStudents) {
+          console.log('Students still loading, retrying in 500ms...');
+          setTimeout(() => loadChapter(chapterId, chapterTitle), 500);
+          return;
+        }
+        
         currentChapterId = chapterId;
         window.currentChapterId = chapterId;
         
@@ -1388,18 +1401,46 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         console.log('window.currentChapterId is now:', window.currentChapterId);
         
         // Update document title
-        document.getElementById('document-title').textContent = chapterTitle;
-        document.getElementById('document-info').textContent = 'Loading chapter content...';
-        document.getElementById('document-tools').style.display = 'flex';
+        const documentTitle = document.getElementById('document-title');
+        const documentInfo = document.getElementById('document-info');
+        const documentTools = document.getElementById('document-tools');
+        
+        if (documentTitle) {
+          documentTitle.textContent = chapterTitle;
+        }
+        if (documentInfo) {
+          documentInfo.textContent = 'Loading chapter content...';
+        }
+        if (documentTools) {
+          documentTools.style.display = 'flex';
+        }
+        
+        // Show loading indicator in document viewer
+        const adviserWordViewer = document.getElementById('adviser-word-document-viewer');
+        if (adviserWordViewer) {
+          adviserWordViewer.innerHTML = `
+            <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+              <p>Loading chapter...</p>
+            </div>
+          `;
+        }
         
         // Load chapter data
         fetch(`api/document_review.php?action=get_chapter&chapter_id=${chapterId}`)
-          .then(response => response.json())
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+          })
           .then(data => {
             if (data.success) {
               const chapter = data.chapter;
-              document.getElementById('document-info').textContent = 
-                `${chapter.student_name} • ${chapter.thesis_title}`;
+              const documentInfo = document.getElementById('document-info');
+              if (documentInfo) {
+                documentInfo.textContent = `${chapter.student_name} • ${chapter.thesis_title}`;
+              }
               
               // Check if there are file uploads for this chapter
               if (chapter.files && chapter.files.length > 0) {
@@ -1427,14 +1468,19 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   const wordFile = wordFiles[0]; // Use the first Word file
                   
                   // Hide fallback preview and show Word viewer
-                  document.getElementById('document-preview').classList.add('hidden');
+                  const documentPreview = document.getElementById('document-preview');
+                  if (documentPreview) {
+                    documentPreview.classList.add('hidden');
+                  }
                   
                   // Initialize Word viewer (it will handle server limitations gracefully)
                   initializeAdviserWordViewer(wordFile.id);
                   
                   // Set download link
                   const downloadBtn = document.getElementById('download-document-btn');
-                  downloadBtn.href = `api/download_file.php?file_id=${wordFile.id}`;
+                  if (downloadBtn) {
+                    downloadBtn.href = `api/download_file.php?file_id=${wordFile.id}`;
+                  }
                   
                   // Load formatting analysis
                   loadFormatAnalysis(wordFile.id);
@@ -1444,82 +1490,148 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   const latestFile = files[0];
                   
                   // Hide Word viewer and show fallback preview
-                  document.getElementById('adviser-word-document-viewer').innerHTML = `
-                    <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
-                      <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
-                      <p>Word viewer not available for this file type</p>
-                    </div>
-                  `;
-                document.getElementById('document-preview').classList.remove('hidden');
+                  const adviserWordViewer = document.getElementById('adviser-word-document-viewer');
+                  if (adviserWordViewer) {
+                    adviserWordViewer.innerHTML = `
+                      <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+                        <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                        <p>Word viewer not available for this file type</p>
+                      </div>
+                    `;
+                  }
+                const documentPreview = document.getElementById('document-preview');
+                if (documentPreview) {
+                  documentPreview.classList.remove('hidden');
+                }
                 
                 // Update file information
-                document.getElementById('file-name').textContent = latestFile.original_filename;
-                document.getElementById('file-info').textContent = `Uploaded on ${new Date(latestFile.uploaded_at).toLocaleString()}`;
+                const fileName = document.getElementById('file-name');
+                const fileInfo = document.getElementById('file-info');
+                const fileTypeBadge = document.getElementById('file-type-badge');
+                
+                if (fileName) {
+                  fileName.textContent = latestFile.original_filename;
+                }
+                if (fileInfo) {
+                  fileInfo.textContent = `Uploaded on ${new Date(latestFile.uploaded_at).toLocaleString()}`;
+                }
                 
                 // Set file type badge
-                const fileType = latestFile.file_type;
-                let badgeClass = 'bg-gray-100 text-gray-800';
-                let fileTypeText = 'Unknown';
-                
-                if (fileType.includes('pdf')) {
-                  badgeClass = 'bg-red-100 text-red-800';
-                  fileTypeText = 'PDF';
+                if (fileTypeBadge) {
+                  const fileType = latestFile.file_type;
+                  let badgeClass = 'bg-gray-100 text-gray-800';
+                  let fileTypeText = 'Unknown';
+                  
+                  if (fileType.includes('pdf')) {
+                    badgeClass = 'bg-red-100 text-red-800';
+                    fileTypeText = 'PDF';
                   } else if (fileType.includes('word') || fileType.includes('document') || 
                            fileType === 'application/msword' || 
                            fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-                  badgeClass = 'bg-blue-100 text-blue-800';
-                  fileTypeText = 'Word';
+                    badgeClass = 'bg-blue-100 text-blue-800';
+                    fileTypeText = 'Word';
+                  }
+                  
+                  fileTypeBadge.className = `px-2 py-1 text-xs rounded ${badgeClass}`;
+                  fileTypeBadge.textContent = fileTypeText;
                 }
-                
-                document.getElementById('file-type-badge').className = `px-2 py-1 text-xs rounded ${badgeClass}`;
-                document.getElementById('file-type-badge').textContent = fileTypeText;
                 
                 // Set download link
                 const downloadBtn = document.getElementById('download-document-btn');
-                downloadBtn.href = `api/download_file.php?file_id=${latestFile.id}`;
+                if (downloadBtn) {
+                  downloadBtn.href = `api/download_file.php?file_id=${latestFile.id}`;
+                }
                 
                 // Load formatting analysis for non-Word files
                 loadFormatAnalysis(latestFile.id);
                 }
                 
                 // Show quick comment form
-                document.getElementById('quick-comment-form').classList.remove('hidden');
+                const quickCommentForm = document.getElementById('quick-comment-form');
+                if (quickCommentForm) {
+                  quickCommentForm.classList.remove('hidden');
+                }
                 
                 // Load existing comments
                 loadComments(chapterId);
                 
               } else {
                 // No files uploaded, show no content message
-                document.getElementById('document-preview').classList.add('hidden');
-                document.getElementById('adviser-word-document-viewer').innerHTML = `
-                  <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
-                    <i data-lucide="file-x" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
-                    <p>No files uploaded for this chapter</p>
-                      </div>
-                    `;
+                const documentPreview = document.getElementById('document-preview');
+                const adviserWordViewer = document.getElementById('adviser-word-document-viewer');
+                
+                if (documentPreview) {
+                  documentPreview.classList.add('hidden');
+                }
+                if (adviserWordViewer) {
+                  adviserWordViewer.innerHTML = `
+                    <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+                      <i data-lucide="file-x" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                      <p>No files uploaded for this chapter</p>
+                    </div>
+                  `;
+                }
                 
                 // Hide tools since there's no content
-                document.getElementById('document-tools').style.display = 'none';
-                document.getElementById('quick-comment-form').classList.add('hidden');
+                const documentTools = document.getElementById('document-tools');
+                const quickCommentForm = document.getElementById('quick-comment-form');
+                if (documentTools) {
+                  documentTools.style.display = 'none';
+                }
+                if (quickCommentForm) {
+                  quickCommentForm.classList.add('hidden');
+                }
                 
                 // Clear format analysis
-                document.getElementById('format-analysis-content').innerHTML = `
-                  <div class="text-center py-8 text-gray-500">
-                    <i data-lucide="search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-                    <p class="text-sm">Select a document to analyze formatting</p>
-                  </div>
-                `;
+                const formatAnalysisContent = document.getElementById('format-analysis-content');
+                if (formatAnalysisContent) {
+                  formatAnalysisContent.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                      <i data-lucide="search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                      <p class="text-sm">Select a document to analyze formatting</p>
+                    </div>
+                  `;
+                }
               }
                 
                 // Refresh Lucide icons
                 lucide.createIcons();
             } else {
-              showError('Failed to load chapter: ' + data.error);
+              const errorMessage = data.error || 'Unknown error occurred';
+              console.error('Chapter loading failed:', errorMessage);
+              showError('Failed to load chapter: ' + errorMessage);
+              
+              // Show retry option in document viewer
+              document.getElementById('adviser-word-document-viewer').innerHTML = `
+                <div class="text-center py-12 text-red-500 h-full flex flex-col justify-center">
+                  <i data-lucide="alert-circle" class="w-16 h-16 mx-auto mb-4 text-red-300"></i>
+                  <p class="mb-2">Failed to load chapter</p>
+                  <p class="text-sm text-gray-500 mb-4">${errorMessage}</p>
+                  <button onclick="loadChapter('${chapterId}', '${chapterTitle}')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Try Again
+                  </button>
+                </div>
+              `;
+              lucide.createIcons();
             }
           })
           .catch(error => {
             console.error('Error loading chapter:', error);
-            showError('Failed to load chapter');
+            const errorMessage = error.message || 'Network or server error';
+            showError('Failed to load chapter: ' + errorMessage);
+            
+            // Show retry option in document viewer
+            document.getElementById('adviser-word-document-viewer').innerHTML = `
+              <div class="text-center py-12 text-red-500 h-full flex flex-col justify-center">
+                <i data-lucide="wifi-off" class="w-16 h-16 mx-auto mb-4 text-red-300"></i>
+                <p class="mb-2">Connection Error</p>
+                <p class="text-sm text-gray-500 mb-4">${errorMessage}</p>
+                <button onclick="loadChapter('${chapterId}', '${chapterTitle}')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                  Try Again
+                </button>
+              </div>
+            `;
+            lucide.createIcons();
           });
       }
 
@@ -1528,42 +1640,71 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Initialize Word viewer for adviser
       function initializeAdviserWordViewer(fileId) {
-        // Debug: Log file ID and fetch file info
         console.log('Initializing Word viewer for file ID:', fileId);
         console.log('Current chapter ID:', window.currentChapterId);
         
-        // Fetch debug info first
-        fetch(`api/document_review.php?action=debug_file&file_id=${fileId}`)
-          .then(response => response.json())
-          .then(data => {
-            if (data.success) {
-              console.log('File debug info:', data.debug_info);
-            } else {
-              console.error('Debug info error:', data.error);
-            }
-          })
-          .catch(error => console.error('Debug fetch error:', error));
-        
-        // Create or recreate the word viewer
         const viewerContainer = document.getElementById('adviser-word-document-viewer');
-        viewerContainer.innerHTML = '<div id="adviser-word-viewer-content" class="h-full"></div>';
+        if (!viewerContainer) {
+          console.error('Word viewer container not found');
+          return;
+        }
         
-        // Initialize the Word viewer
-        adviserWordViewer = new WordViewer('adviser-word-viewer-content', {
-          showComments: true,
-          showToolbar: true,
-          allowZoom: true
-        });
-        
-        // Load the document
-        adviserWordViewer.loadDocument(fileId);
-        
-        // Load existing comments and highlights for this chapter
-        if (window.currentChapterId) {
-          setTimeout(() => {
-            loadComments(window.currentChapterId);
-            loadHighlights(window.currentChapterId);
-          }, 1000); // Wait for document to load
+        try {
+          // Fetch debug info first
+          fetch(`api/document_review.php?action=debug_file&file_id=${fileId}`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                console.log('File debug info:', data.debug_info);
+              } else {
+                console.error('Debug info error:', data.error);
+              }
+            })
+            .catch(error => console.error('Debug fetch error:', error));
+          
+          // Create or recreate the word viewer
+          viewerContainer.innerHTML = '<div id="adviser-word-viewer-content" class="h-full"></div>';
+          
+          // Check if WordViewer is available
+          if (typeof WordViewer !== 'undefined') {
+            // Initialize the Word viewer
+            adviserWordViewer = new WordViewer('adviser-word-viewer-content', {
+              showComments: true,
+              showToolbar: true,
+              allowZoom: true
+            });
+            
+            // Load the document
+            adviserWordViewer.loadDocument(fileId);
+          } else {
+            console.warn('WordViewer class not available, showing fallback');
+            viewerContainer.innerHTML = `
+              <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+                <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                <p class="mb-2">Word viewer not available</p>
+                <p class="text-sm text-gray-400">Document preview functionality requires Word viewer component</p>
+              </div>
+            `;
+            lucide.createIcons();
+          }
+          
+          // Load existing comments and highlights for this chapter
+          if (window.currentChapterId) {
+            setTimeout(() => {
+              loadComments(window.currentChapterId);
+              loadHighlights(window.currentChapterId);
+            }, 1000); // Wait for document to load
+          }
+        } catch (error) {
+          console.error('Error initializing Word viewer:', error);
+          viewerContainer.innerHTML = `
+            <div class="text-center py-12 text-red-500 h-full flex flex-col justify-center">
+              <i data-lucide="alert-circle" class="w-16 h-16 mx-auto mb-4 text-red-300"></i>
+              <p class="mb-2">Error loading document viewer</p>
+              <p class="text-sm text-gray-400">${error.message}</p>
+            </div>
+          `;
+          lucide.createIcons();
         }
       }
 
@@ -1581,14 +1722,74 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Load existing comments
       function loadComments(chapterId) {
+        if (!chapterId) {
+          console.warn('loadComments called without chapter ID');
+          return;
+        }
+        
         fetch(`api/comments.php?action=get_comments&chapter_id=${chapterId}`)
           .then(response => response.json())
           .then(data => {
             if (data.success) {
               displayComments(data.comments);
+            } else {
+              console.warn('Failed to load comments:', data.error);
             }
           })
-          .catch(error => console.error('Error loading comments:', error));
+          .catch(error => {
+            console.error('Error loading comments:', error);
+            // Don't call displayComments on error to prevent further issues
+          });
+      }
+      
+      // Display comments function
+      function displayComments(comments) {
+        console.log('displayComments called with:', comments);
+        
+        // Check if we have a comments container
+        const commentsContainer = document.getElementById('comments-content') || 
+                                 document.getElementById('comments-list') ||
+                                 document.querySelector('.comments-container');
+        
+        if (!commentsContainer) {
+          console.log('No comments container found, skipping display');
+          return;
+        }
+        
+        if (!comments || comments.length === 0) {
+          commentsContainer.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+              <p class="text-sm">No comments yet</p>
+              <p class="text-xs text-gray-400 mt-1">Comments from advisers will appear here</p>
+            </div>
+          `;
+          lucide.createIcons();
+          return;
+        }
+        
+        // Display comments
+        commentsContainer.innerHTML = comments.map(comment => `
+          <div class="border rounded-lg p-3 mb-3 bg-white">
+            <div class="flex justify-between items-start mb-2">
+              <div class="font-medium text-sm text-gray-900">${comment.adviser_name}</div>
+              <div class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleString()}</div>
+            </div>
+            <div class="text-sm text-gray-700 mb-2">${comment.comment_text}</div>
+            ${comment.highlighted_text ? `
+              <div class="text-xs text-gray-500 bg-yellow-50 p-2 rounded border-l-2 border-yellow-400">
+                <strong>Referenced text:</strong> "${comment.highlighted_text}"
+              </div>
+            ` : ''}
+            ${comment.metadata ? `
+              <div class="text-xs text-gray-400 mt-1">
+                Additional context available
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+        
+        lucide.createIcons();
       }
 
       // Apply highlights to content
@@ -1699,14 +1900,23 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Color picker functionality
       document.getElementById('color-picker-btn')?.addEventListener('click', function() {
-        document.getElementById('color-picker').classList.toggle('hidden');
+        const colorPicker = document.getElementById('color-picker');
+        if (colorPicker) {
+          colorPicker.classList.toggle('hidden');
+        }
       });
 
       document.querySelectorAll('.color-option').forEach(button => {
         button.addEventListener('click', function() {
           window.currentHighlightColor = this.dataset.color;
-          document.getElementById('current-color').style.backgroundColor = window.currentHighlightColor;
-          document.getElementById('color-picker').classList.add('hidden');
+          const currentColor = document.getElementById('current-color');
+          if (currentColor) {
+            currentColor.style.backgroundColor = window.currentHighlightColor;
+          }
+          const colorPicker = document.getElementById('color-picker');
+          if (colorPicker) {
+            colorPicker.classList.add('hidden');
+          }
         });
       });
 
@@ -1754,7 +1964,10 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           console.log('Response data:', data);
           if (data.success) {
             // Clear comment field
-            document.getElementById('quick-comment-text').value = '';
+            const quickCommentText = document.getElementById('quick-comment-text');
+            if (quickCommentText) {
+              quickCommentText.value = '';
+            }
             
             // Show success notification
             showNotification('Comment added successfully!', 'success');
@@ -1763,7 +1976,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             loadComments(chapterId);
           } else {
             console.error('Server error:', data.error);
-            showNotification('Failed to add comment: ' + data.error, 'error');
+            showNotification('Failed to add comment: ' + (data.error || 'Unknown error'), 'error');
           }
         })
         .catch(error => {
@@ -1832,8 +2045,14 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Comment modal functionality
       document.getElementById('cancel-comment')?.addEventListener('click', function() {
-        document.getElementById('comment-modal').classList.add('hidden');
-        document.getElementById('comment-text').value = '';
+        const commentModal = document.getElementById('comment-modal');
+        const commentText = document.getElementById('comment-text');
+        if (commentModal) {
+          commentModal.classList.add('hidden');
+        }
+        if (commentText) {
+          commentText.value = '';
+        }
       });
 
       // Format Analysis Functions
@@ -2021,15 +2240,21 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       }
 
       document.getElementById('save-comment')?.addEventListener('click', function() {
-        const commentText = document.getElementById('comment-text').value.trim();
+        const commentTextElement = document.getElementById('comment-text');
+        if (!commentTextElement) return;
+        
+        const commentText = commentTextElement.value.trim();
         if (!commentText || !currentChapterId) return;
         
         // Use the addComment function
         addComment(commentText);
         
         // Close modal
-        document.getElementById('comment-modal').classList.add('hidden');
-        document.getElementById('comment-text').value = '';
+        const commentModal = document.getElementById('comment-modal');
+        if (commentModal) {
+          commentModal.classList.add('hidden');
+        }
+        commentTextElement.value = '';
         
         // Clear selection
         window.getSelection().removeAllRanges();
@@ -2101,14 +2326,20 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       document.getElementById('comment-modal')?.addEventListener('click', function(e) {
         if (e.target === this) {
           this.classList.add('hidden');
-          document.getElementById('comment-text').value = '';
+          const commentText = document.getElementById('comment-text');
+          if (commentText) {
+            commentText.value = '';
+          }
         }
       });
 
       // Close color picker when clicking outside
       document.addEventListener('click', function(e) {
         if (!e.target.closest('#color-picker-btn') && !e.target.closest('#color-picker')) {
-          document.getElementById('color-picker')?.classList.add('hidden');
+          const colorPicker = document.getElementById('color-picker');
+          if (colorPicker) {
+            colorPicker.classList.add('hidden');
+          }
         }
       });
       
@@ -3465,27 +3696,77 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       // Initialize activity logs when tab is clicked
       document.querySelector('[data-tab="activity-logs"]').addEventListener('click', loadActivityLogs);
       
+      // Add loading state management
+      let isLoadingStudents = false;
+      
       // Initialize document review when tab is clicked
-      document.querySelector('[data-tab="document-review"]').addEventListener('click', loadAllStudentsForReview);
+      document.querySelector('[data-tab="document-review"]').addEventListener('click', function() {
+        if (!isLoadingStudents) {
+          loadAllStudentsForReview();
+        }
+      });
       
       // Add filter change handlers
       document.getElementById('activity-type-filter').addEventListener('change', loadActivityLogs);
       document.getElementById('activity-time-filter').addEventListener('change', loadActivityLogs);
       
       // Add refresh button functionality
-      document.getElementById('refresh-document-list').addEventListener('click', loadAllStudentsForReview);
+      document.getElementById('refresh-document-list').addEventListener('click', function() {
+        if (!isLoadingStudents) {
+          loadAllStudentsForReview();
+        }
+      });
       
       // Load students initially if document review tab is active
       const currentTab = new URLSearchParams(window.location.search).get('tab');
       if (currentTab === 'document-review') {
-        // Small delay to ensure DOM is ready
-        setTimeout(loadAllStudentsForReview, 100);
+        // Ensure DOM is ready and no concurrent loading
+        // Longer delay to ensure all components are initialized
+        setTimeout(() => {
+          if (!isLoadingStudents) {
+            console.log('Initial load for document-review tab');
+            loadAllStudentsForReview();
+          }
+        }, 500);
+      }
+      
+      // Fallback: if document review tab is active and no content loads within 3 seconds, 
+      // provide a manual refresh option
+      if (currentTab === 'document-review') {
+        setTimeout(() => {
+          const studentsList = document.getElementById('students-list');
+          const loadingDiv = document.getElementById('loading-students');
+          
+          if (studentsList && loadingDiv && 
+              !loadingDiv.classList.contains('hidden') && 
+              studentsList.innerHTML.trim() === '') {
+            console.log('Fallback: Students still loading after 3 seconds');
+            loadingDiv.classList.add('hidden');
+            studentsList.innerHTML = `
+              <div class="text-center py-8 text-gray-500">
+                <i data-lucide="refresh-cw" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                <p class="text-sm mb-3">Taking longer than expected...</p>
+                <button onclick="loadAllStudentsForReview()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                  Load Documents
+                </button>
+              </div>
+            `;
+            lucide.createIcons();
+          }
+        }, 3000);
       }
     });
 
     // Load all students for document review
     function loadAllStudentsForReview() {
+      // Prevent concurrent loading
+      if (isLoadingStudents) {
+        console.log("Already loading students, skipping...");
+        return;
+      }
+      
       console.log("Loading all students for document review...");
+      isLoadingStudents = true;
       
       const loadingDiv = document.getElementById('loading-students');
       const studentsList = document.getElementById('students-list');
@@ -3499,7 +3780,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       fetch('api/document_review.php?action=get_all_students')
         .then(response => {
           if (!response.ok) {
-            throw new Error('Failed to load students');
+            throw new Error(`Server error: ${response.status} ${response.statusText}`);
           }
           return response.json();
         })
@@ -3508,9 +3789,12 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           
           // Hide loading state
           loadingDiv.classList.add('hidden');
+          isLoadingStudents = false;
           
           if (data.success && data.students && data.students.length > 0) {
             displayStudentsForReview(data.students);
+          } else if (data.error) {
+            throw new Error(data.error);
           } else {
             // Show no students message
             noStudentsDiv.classList.remove('hidden');
@@ -3519,12 +3803,16 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .catch(error => {
           console.error('Error loading students:', error);
           loadingDiv.classList.add('hidden');
+          isLoadingStudents = false;
           
           studentsList.innerHTML = `
             <div class="text-center py-8 text-gray-500">
               <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
               <p class="text-sm">Failed to load students</p>
               <p class="text-xs text-red-500 mt-2">${error.message}</p>
+              <button onclick="loadAllStudentsForReview()" class="mt-3 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                Try Again
+              </button>
             </div>
           `;
           lucide.createIcons();
@@ -3618,16 +3906,36 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       // Re-attach event listeners to chapter items
       document.querySelectorAll('.chapter-item').forEach(item => {
         item.addEventListener('click', function() {
+          // Prevent multiple rapid clicks
+          if (this.classList.contains('loading')) {
+            return;
+          }
+          
           // Remove active class from all chapters
-          document.querySelectorAll('.chapter-item').forEach(ch => ch.classList.remove('bg-blue-100'));
+          document.querySelectorAll('.chapter-item').forEach(ch => {
+            ch.classList.remove('bg-blue-100', 'loading');
+          });
           
-          // Add active class to clicked chapter
-          this.classList.add('bg-blue-100');
+          // Add active class and loading state to clicked chapter
+          this.classList.add('bg-blue-100', 'loading');
           
-          // Load the chapter
+          // Get chapter data
           const chapterId = this.dataset.chapterId;
           const chapterTitle = this.dataset.chapterTitle;
-          loadChapter(chapterId, chapterTitle);
+          
+          // Validate chapter data
+          if (!chapterId || !chapterTitle) {
+            console.error('Invalid chapter data:', { chapterId, chapterTitle });
+            showError('Invalid chapter data. Please refresh the page.');
+            this.classList.remove('loading');
+            return;
+          }
+          
+          // Small delay to ensure DOM is stable
+          setTimeout(() => {
+            loadChapter(chapterId, chapterTitle);
+            this.classList.remove('loading');
+          }, 50);
         });
       });
     }
