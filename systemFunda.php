@@ -1416,12 +1416,15 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         
         // Show loading indicator in document viewer
-        document.getElementById('adviser-word-document-viewer').innerHTML = `
-          <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
-            <p>Loading chapter...</p>
-          </div>
-        `;
+        const adviserWordViewer = document.getElementById('adviser-word-document-viewer');
+        if (adviserWordViewer) {
+          adviserWordViewer.innerHTML = `
+            <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+              <p>Loading chapter...</p>
+            </div>
+          `;
+        }
         
         // Load chapter data
         fetch(`api/document_review.php?action=get_chapter&chapter_id=${chapterId}`)
@@ -1465,14 +1468,19 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   const wordFile = wordFiles[0]; // Use the first Word file
                   
                   // Hide fallback preview and show Word viewer
-                  document.getElementById('document-preview').classList.add('hidden');
+                  const documentPreview = document.getElementById('document-preview');
+                  if (documentPreview) {
+                    documentPreview.classList.add('hidden');
+                  }
                   
                   // Initialize Word viewer (it will handle server limitations gracefully)
                   initializeAdviserWordViewer(wordFile.id);
                   
                   // Set download link
                   const downloadBtn = document.getElementById('download-document-btn');
-                  downloadBtn.href = `api/download_file.php?file_id=${wordFile.id}`;
+                  if (downloadBtn) {
+                    downloadBtn.href = `api/download_file.php?file_id=${wordFile.id}`;
+                  }
                   
                   // Load formatting analysis
                   loadFormatAnalysis(wordFile.id);
@@ -1482,39 +1490,57 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   const latestFile = files[0];
                   
                   // Hide Word viewer and show fallback preview
-                  document.getElementById('adviser-word-document-viewer').innerHTML = `
-                    <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
-                      <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
-                      <p>Word viewer not available for this file type</p>
-                    </div>
-                  `;
-                document.getElementById('document-preview').classList.remove('hidden');
+                  const adviserWordViewer = document.getElementById('adviser-word-document-viewer');
+                  if (adviserWordViewer) {
+                    adviserWordViewer.innerHTML = `
+                      <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+                        <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                        <p>Word viewer not available for this file type</p>
+                      </div>
+                    `;
+                  }
+                const documentPreview = document.getElementById('document-preview');
+                if (documentPreview) {
+                  documentPreview.classList.remove('hidden');
+                }
                 
                 // Update file information
-                document.getElementById('file-name').textContent = latestFile.original_filename;
-                document.getElementById('file-info').textContent = `Uploaded on ${new Date(latestFile.uploaded_at).toLocaleString()}`;
+                const fileName = document.getElementById('file-name');
+                const fileInfo = document.getElementById('file-info');
+                const fileTypeBadge = document.getElementById('file-type-badge');
+                
+                if (fileName) {
+                  fileName.textContent = latestFile.original_filename;
+                }
+                if (fileInfo) {
+                  fileInfo.textContent = `Uploaded on ${new Date(latestFile.uploaded_at).toLocaleString()}`;
+                }
                 
                 // Set file type badge
-                const fileType = latestFile.file_type;
-                let badgeClass = 'bg-gray-100 text-gray-800';
-                let fileTypeText = 'Unknown';
-                
-                if (fileType.includes('pdf')) {
-                  badgeClass = 'bg-red-100 text-red-800';
-                  fileTypeText = 'PDF';
+                if (fileTypeBadge) {
+                  const fileType = latestFile.file_type;
+                  let badgeClass = 'bg-gray-100 text-gray-800';
+                  let fileTypeText = 'Unknown';
+                  
+                  if (fileType.includes('pdf')) {
+                    badgeClass = 'bg-red-100 text-red-800';
+                    fileTypeText = 'PDF';
                   } else if (fileType.includes('word') || fileType.includes('document') || 
                            fileType === 'application/msword' || 
                            fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-                  badgeClass = 'bg-blue-100 text-blue-800';
-                  fileTypeText = 'Word';
+                    badgeClass = 'bg-blue-100 text-blue-800';
+                    fileTypeText = 'Word';
+                  }
+                  
+                  fileTypeBadge.className = `px-2 py-1 text-xs rounded ${badgeClass}`;
+                  fileTypeBadge.textContent = fileTypeText;
                 }
-                
-                document.getElementById('file-type-badge').className = `px-2 py-1 text-xs rounded ${badgeClass}`;
-                document.getElementById('file-type-badge').textContent = fileTypeText;
                 
                 // Set download link
                 const downloadBtn = document.getElementById('download-document-btn');
-                downloadBtn.href = `api/download_file.php?file_id=${latestFile.id}`;
+                if (downloadBtn) {
+                  downloadBtn.href = `api/download_file.php?file_id=${latestFile.id}`;
+                }
                 
                 // Load formatting analysis for non-Word files
                 loadFormatAnalysis(latestFile.id);
@@ -1531,13 +1557,20 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
               } else {
                 // No files uploaded, show no content message
-                document.getElementById('document-preview').classList.add('hidden');
-                document.getElementById('adviser-word-document-viewer').innerHTML = `
-                  <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
-                    <i data-lucide="file-x" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
-                    <p>No files uploaded for this chapter</p>
-                      </div>
-                    `;
+                const documentPreview = document.getElementById('document-preview');
+                const adviserWordViewer = document.getElementById('adviser-word-document-viewer');
+                
+                if (documentPreview) {
+                  documentPreview.classList.add('hidden');
+                }
+                if (adviserWordViewer) {
+                  adviserWordViewer.innerHTML = `
+                    <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+                      <i data-lucide="file-x" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                      <p>No files uploaded for this chapter</p>
+                    </div>
+                  `;
+                }
                 
                 // Hide tools since there's no content
                 const documentTools = document.getElementById('document-tools');
