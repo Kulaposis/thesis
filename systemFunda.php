@@ -1381,6 +1381,19 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         console.log('=== loadChapter called ===');
         console.log('Setting currentChapterId to:', chapterId);
         
+        // Validate chapter ID
+        if (!chapterId || chapterId === 'undefined' || chapterId === 'null') {
+          showError('Invalid chapter ID. Please try refreshing the page.');
+          return;
+        }
+        
+        // Wait for students to finish loading if they're still loading
+        if (isLoadingStudents) {
+          console.log('Students still loading, retrying in 500ms...');
+          setTimeout(() => loadChapter(chapterId, chapterTitle), 500);
+          return;
+        }
+        
         currentChapterId = chapterId;
         window.currentChapterId = chapterId;
         
@@ -1392,9 +1405,22 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         document.getElementById('document-info').textContent = 'Loading chapter content...';
         document.getElementById('document-tools').style.display = 'flex';
         
+        // Show loading indicator in document viewer
+        document.getElementById('adviser-word-document-viewer').innerHTML = `
+          <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+            <p>Loading chapter...</p>
+          </div>
+        `;
+        
         // Load chapter data
         fetch(`api/document_review.php?action=get_chapter&chapter_id=${chapterId}`)
-          .then(response => response.json())
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+          })
           .then(data => {
             if (data.success) {
               const chapter = data.chapter;
@@ -1514,12 +1540,41 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 // Refresh Lucide icons
                 lucide.createIcons();
             } else {
-              showError('Failed to load chapter: ' + data.error);
+              const errorMessage = data.error || 'Unknown error occurred';
+              console.error('Chapter loading failed:', errorMessage);
+              showError('Failed to load chapter: ' + errorMessage);
+              
+              // Show retry option in document viewer
+              document.getElementById('adviser-word-document-viewer').innerHTML = `
+                <div class="text-center py-12 text-red-500 h-full flex flex-col justify-center">
+                  <i data-lucide="alert-circle" class="w-16 h-16 mx-auto mb-4 text-red-300"></i>
+                  <p class="mb-2">Failed to load chapter</p>
+                  <p class="text-sm text-gray-500 mb-4">${errorMessage}</p>
+                  <button onclick="loadChapter('${chapterId}', '${chapterTitle}')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Try Again
+                  </button>
+                </div>
+              `;
+              lucide.createIcons();
             }
           })
           .catch(error => {
             console.error('Error loading chapter:', error);
-            showError('Failed to load chapter');
+            const errorMessage = error.message || 'Network or server error';
+            showError('Failed to load chapter: ' + errorMessage);
+            
+            // Show retry option in document viewer
+            document.getElementById('adviser-word-document-viewer').innerHTML = `
+              <div class="text-center py-12 text-red-500 h-full flex flex-col justify-center">
+                <i data-lucide="wifi-off" class="w-16 h-16 mx-auto mb-4 text-red-300"></i>
+                <p class="mb-2">Connection Error</p>
+                <p class="text-sm text-gray-500 mb-4">${errorMessage}</p>
+                <button onclick="loadChapter('${chapterId}', '${chapterTitle}')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                  Try Again
+                </button>
+              </div>
+            `;
+            lucide.createIcons();
           });
       }
 
@@ -3465,27 +3520,77 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       // Initialize activity logs when tab is clicked
       document.querySelector('[data-tab="activity-logs"]').addEventListener('click', loadActivityLogs);
       
+      // Add loading state management
+      let isLoadingStudents = false;
+      
       // Initialize document review when tab is clicked
-      document.querySelector('[data-tab="document-review"]').addEventListener('click', loadAllStudentsForReview);
+      document.querySelector('[data-tab="document-review"]').addEventListener('click', function() {
+        if (!isLoadingStudents) {
+          loadAllStudentsForReview();
+        }
+      });
       
       // Add filter change handlers
       document.getElementById('activity-type-filter').addEventListener('change', loadActivityLogs);
       document.getElementById('activity-time-filter').addEventListener('change', loadActivityLogs);
       
       // Add refresh button functionality
-      document.getElementById('refresh-document-list').addEventListener('click', loadAllStudentsForReview);
+      document.getElementById('refresh-document-list').addEventListener('click', function() {
+        if (!isLoadingStudents) {
+          loadAllStudentsForReview();
+        }
+      });
       
       // Load students initially if document review tab is active
       const currentTab = new URLSearchParams(window.location.search).get('tab');
       if (currentTab === 'document-review') {
-        // Small delay to ensure DOM is ready
-        setTimeout(loadAllStudentsForReview, 100);
+        // Ensure DOM is ready and no concurrent loading
+        // Longer delay to ensure all components are initialized
+        setTimeout(() => {
+          if (!isLoadingStudents) {
+            console.log('Initial load for document-review tab');
+            loadAllStudentsForReview();
+          }
+        }, 500);
+      }
+      
+      // Fallback: if document review tab is active and no content loads within 3 seconds, 
+      // provide a manual refresh option
+      if (currentTab === 'document-review') {
+        setTimeout(() => {
+          const studentsList = document.getElementById('students-list');
+          const loadingDiv = document.getElementById('loading-students');
+          
+          if (studentsList && loadingDiv && 
+              !loadingDiv.classList.contains('hidden') && 
+              studentsList.innerHTML.trim() === '') {
+            console.log('Fallback: Students still loading after 3 seconds');
+            loadingDiv.classList.add('hidden');
+            studentsList.innerHTML = `
+              <div class="text-center py-8 text-gray-500">
+                <i data-lucide="refresh-cw" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                <p class="text-sm mb-3">Taking longer than expected...</p>
+                <button onclick="loadAllStudentsForReview()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                  Load Documents
+                </button>
+              </div>
+            `;
+            lucide.createIcons();
+          }
+        }, 3000);
       }
     });
 
     // Load all students for document review
     function loadAllStudentsForReview() {
+      // Prevent concurrent loading
+      if (isLoadingStudents) {
+        console.log("Already loading students, skipping...");
+        return;
+      }
+      
       console.log("Loading all students for document review...");
+      isLoadingStudents = true;
       
       const loadingDiv = document.getElementById('loading-students');
       const studentsList = document.getElementById('students-list');
@@ -3499,7 +3604,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       fetch('api/document_review.php?action=get_all_students')
         .then(response => {
           if (!response.ok) {
-            throw new Error('Failed to load students');
+            throw new Error(`Server error: ${response.status} ${response.statusText}`);
           }
           return response.json();
         })
@@ -3508,9 +3613,12 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           
           // Hide loading state
           loadingDiv.classList.add('hidden');
+          isLoadingStudents = false;
           
           if (data.success && data.students && data.students.length > 0) {
             displayStudentsForReview(data.students);
+          } else if (data.error) {
+            throw new Error(data.error);
           } else {
             // Show no students message
             noStudentsDiv.classList.remove('hidden');
@@ -3519,12 +3627,16 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .catch(error => {
           console.error('Error loading students:', error);
           loadingDiv.classList.add('hidden');
+          isLoadingStudents = false;
           
           studentsList.innerHTML = `
             <div class="text-center py-8 text-gray-500">
               <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
               <p class="text-sm">Failed to load students</p>
               <p class="text-xs text-red-500 mt-2">${error.message}</p>
+              <button onclick="loadAllStudentsForReview()" class="mt-3 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                Try Again
+              </button>
             </div>
           `;
           lucide.createIcons();
@@ -3618,16 +3730,36 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       // Re-attach event listeners to chapter items
       document.querySelectorAll('.chapter-item').forEach(item => {
         item.addEventListener('click', function() {
+          // Prevent multiple rapid clicks
+          if (this.classList.contains('loading')) {
+            return;
+          }
+          
           // Remove active class from all chapters
-          document.querySelectorAll('.chapter-item').forEach(ch => ch.classList.remove('bg-blue-100'));
+          document.querySelectorAll('.chapter-item').forEach(ch => {
+            ch.classList.remove('bg-blue-100', 'loading');
+          });
           
-          // Add active class to clicked chapter
-          this.classList.add('bg-blue-100');
+          // Add active class and loading state to clicked chapter
+          this.classList.add('bg-blue-100', 'loading');
           
-          // Load the chapter
+          // Get chapter data
           const chapterId = this.dataset.chapterId;
           const chapterTitle = this.dataset.chapterTitle;
-          loadChapter(chapterId, chapterTitle);
+          
+          // Validate chapter data
+          if (!chapterId || !chapterTitle) {
+            console.error('Invalid chapter data:', { chapterId, chapterTitle });
+            showError('Invalid chapter data. Please refresh the page.');
+            this.classList.remove('loading');
+            return;
+          }
+          
+          // Small delay to ensure DOM is stable
+          setTimeout(() => {
+            loadChapter(chapterId, chapterTitle);
+            this.classList.remove('loading');
+          }, 50);
         });
       });
     }
