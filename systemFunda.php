@@ -1401,9 +1401,19 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         console.log('window.currentChapterId is now:', window.currentChapterId);
         
         // Update document title
-        document.getElementById('document-title').textContent = chapterTitle;
-        document.getElementById('document-info').textContent = 'Loading chapter content...';
-        document.getElementById('document-tools').style.display = 'flex';
+        const documentTitle = document.getElementById('document-title');
+        const documentInfo = document.getElementById('document-info');
+        const documentTools = document.getElementById('document-tools');
+        
+        if (documentTitle) {
+          documentTitle.textContent = chapterTitle;
+        }
+        if (documentInfo) {
+          documentInfo.textContent = 'Loading chapter content...';
+        }
+        if (documentTools) {
+          documentTools.style.display = 'flex';
+        }
         
         // Show loading indicator in document viewer
         document.getElementById('adviser-word-document-viewer').innerHTML = `
@@ -1424,8 +1434,10 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           .then(data => {
             if (data.success) {
               const chapter = data.chapter;
-              document.getElementById('document-info').textContent = 
-                `${chapter.student_name} • ${chapter.thesis_title}`;
+              const documentInfo = document.getElementById('document-info');
+              if (documentInfo) {
+                documentInfo.textContent = `${chapter.student_name} • ${chapter.thesis_title}`;
+              }
               
               // Check if there are file uploads for this chapter
               if (chapter.files && chapter.files.length > 0) {
@@ -1509,7 +1521,10 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 }
                 
                 // Show quick comment form
-                document.getElementById('quick-comment-form').classList.remove('hidden');
+                const quickCommentForm = document.getElementById('quick-comment-form');
+                if (quickCommentForm) {
+                  quickCommentForm.classList.remove('hidden');
+                }
                 
                 // Load existing comments
                 loadComments(chapterId);
@@ -1525,16 +1540,25 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     `;
                 
                 // Hide tools since there's no content
-                document.getElementById('document-tools').style.display = 'none';
-                document.getElementById('quick-comment-form').classList.add('hidden');
+                const documentTools = document.getElementById('document-tools');
+                const quickCommentForm = document.getElementById('quick-comment-form');
+                if (documentTools) {
+                  documentTools.style.display = 'none';
+                }
+                if (quickCommentForm) {
+                  quickCommentForm.classList.add('hidden');
+                }
                 
                 // Clear format analysis
-                document.getElementById('format-analysis-content').innerHTML = `
-                  <div class="text-center py-8 text-gray-500">
-                    <i data-lucide="search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-                    <p class="text-sm">Select a document to analyze formatting</p>
-                  </div>
-                `;
+                const formatAnalysisContent = document.getElementById('format-analysis-content');
+                if (formatAnalysisContent) {
+                  formatAnalysisContent.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                      <i data-lucide="search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                      <p class="text-sm">Select a document to analyze formatting</p>
+                    </div>
+                  `;
+                }
               }
                 
                 // Refresh Lucide icons
@@ -1583,42 +1607,71 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Initialize Word viewer for adviser
       function initializeAdviserWordViewer(fileId) {
-        // Debug: Log file ID and fetch file info
         console.log('Initializing Word viewer for file ID:', fileId);
         console.log('Current chapter ID:', window.currentChapterId);
         
-        // Fetch debug info first
-        fetch(`api/document_review.php?action=debug_file&file_id=${fileId}`)
-          .then(response => response.json())
-          .then(data => {
-            if (data.success) {
-              console.log('File debug info:', data.debug_info);
-            } else {
-              console.error('Debug info error:', data.error);
-            }
-          })
-          .catch(error => console.error('Debug fetch error:', error));
-        
-        // Create or recreate the word viewer
         const viewerContainer = document.getElementById('adviser-word-document-viewer');
-        viewerContainer.innerHTML = '<div id="adviser-word-viewer-content" class="h-full"></div>';
+        if (!viewerContainer) {
+          console.error('Word viewer container not found');
+          return;
+        }
         
-        // Initialize the Word viewer
-        adviserWordViewer = new WordViewer('adviser-word-viewer-content', {
-          showComments: true,
-          showToolbar: true,
-          allowZoom: true
-        });
-        
-        // Load the document
-        adviserWordViewer.loadDocument(fileId);
-        
-        // Load existing comments and highlights for this chapter
-        if (window.currentChapterId) {
-          setTimeout(() => {
-            loadComments(window.currentChapterId);
-            loadHighlights(window.currentChapterId);
-          }, 1000); // Wait for document to load
+        try {
+          // Fetch debug info first
+          fetch(`api/document_review.php?action=debug_file&file_id=${fileId}`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                console.log('File debug info:', data.debug_info);
+              } else {
+                console.error('Debug info error:', data.error);
+              }
+            })
+            .catch(error => console.error('Debug fetch error:', error));
+          
+          // Create or recreate the word viewer
+          viewerContainer.innerHTML = '<div id="adviser-word-viewer-content" class="h-full"></div>';
+          
+          // Check if WordViewer is available
+          if (typeof WordViewer !== 'undefined') {
+            // Initialize the Word viewer
+            adviserWordViewer = new WordViewer('adviser-word-viewer-content', {
+              showComments: true,
+              showToolbar: true,
+              allowZoom: true
+            });
+            
+            // Load the document
+            adviserWordViewer.loadDocument(fileId);
+          } else {
+            console.warn('WordViewer class not available, showing fallback');
+            viewerContainer.innerHTML = `
+              <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
+                <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                <p class="mb-2">Word viewer not available</p>
+                <p class="text-sm text-gray-400">Document preview functionality requires Word viewer component</p>
+              </div>
+            `;
+            lucide.createIcons();
+          }
+          
+          // Load existing comments and highlights for this chapter
+          if (window.currentChapterId) {
+            setTimeout(() => {
+              loadComments(window.currentChapterId);
+              loadHighlights(window.currentChapterId);
+            }, 1000); // Wait for document to load
+          }
+        } catch (error) {
+          console.error('Error initializing Word viewer:', error);
+          viewerContainer.innerHTML = `
+            <div class="text-center py-12 text-red-500 h-full flex flex-col justify-center">
+              <i data-lucide="alert-circle" class="w-16 h-16 mx-auto mb-4 text-red-300"></i>
+              <p class="mb-2">Error loading document viewer</p>
+              <p class="text-sm text-gray-400">${error.message}</p>
+            </div>
+          `;
+          lucide.createIcons();
         }
       }
 
@@ -1636,14 +1689,74 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Load existing comments
       function loadComments(chapterId) {
+        if (!chapterId) {
+          console.warn('loadComments called without chapter ID');
+          return;
+        }
+        
         fetch(`api/comments.php?action=get_comments&chapter_id=${chapterId}`)
           .then(response => response.json())
           .then(data => {
             if (data.success) {
               displayComments(data.comments);
+            } else {
+              console.warn('Failed to load comments:', data.error);
             }
           })
-          .catch(error => console.error('Error loading comments:', error));
+          .catch(error => {
+            console.error('Error loading comments:', error);
+            // Don't call displayComments on error to prevent further issues
+          });
+      }
+      
+      // Display comments function
+      function displayComments(comments) {
+        console.log('displayComments called with:', comments);
+        
+        // Check if we have a comments container
+        const commentsContainer = document.getElementById('comments-content') || 
+                                 document.getElementById('comments-list') ||
+                                 document.querySelector('.comments-container');
+        
+        if (!commentsContainer) {
+          console.log('No comments container found, skipping display');
+          return;
+        }
+        
+        if (!comments || comments.length === 0) {
+          commentsContainer.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+              <p class="text-sm">No comments yet</p>
+              <p class="text-xs text-gray-400 mt-1">Comments from advisers will appear here</p>
+            </div>
+          `;
+          lucide.createIcons();
+          return;
+        }
+        
+        // Display comments
+        commentsContainer.innerHTML = comments.map(comment => `
+          <div class="border rounded-lg p-3 mb-3 bg-white">
+            <div class="flex justify-between items-start mb-2">
+              <div class="font-medium text-sm text-gray-900">${comment.adviser_name}</div>
+              <div class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleString()}</div>
+            </div>
+            <div class="text-sm text-gray-700 mb-2">${comment.comment_text}</div>
+            ${comment.highlighted_text ? `
+              <div class="text-xs text-gray-500 bg-yellow-50 p-2 rounded border-l-2 border-yellow-400">
+                <strong>Referenced text:</strong> "${comment.highlighted_text}"
+              </div>
+            ` : ''}
+            ${comment.metadata ? `
+              <div class="text-xs text-gray-400 mt-1">
+                Additional context available
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+        
+        lucide.createIcons();
       }
 
       // Apply highlights to content
@@ -1754,14 +1867,23 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Color picker functionality
       document.getElementById('color-picker-btn')?.addEventListener('click', function() {
-        document.getElementById('color-picker').classList.toggle('hidden');
+        const colorPicker = document.getElementById('color-picker');
+        if (colorPicker) {
+          colorPicker.classList.toggle('hidden');
+        }
       });
 
       document.querySelectorAll('.color-option').forEach(button => {
         button.addEventListener('click', function() {
           window.currentHighlightColor = this.dataset.color;
-          document.getElementById('current-color').style.backgroundColor = window.currentHighlightColor;
-          document.getElementById('color-picker').classList.add('hidden');
+          const currentColor = document.getElementById('current-color');
+          if (currentColor) {
+            currentColor.style.backgroundColor = window.currentHighlightColor;
+          }
+          const colorPicker = document.getElementById('color-picker');
+          if (colorPicker) {
+            colorPicker.classList.add('hidden');
+          }
         });
       });
 
@@ -1809,7 +1931,10 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           console.log('Response data:', data);
           if (data.success) {
             // Clear comment field
-            document.getElementById('quick-comment-text').value = '';
+            const quickCommentText = document.getElementById('quick-comment-text');
+            if (quickCommentText) {
+              quickCommentText.value = '';
+            }
             
             // Show success notification
             showNotification('Comment added successfully!', 'success');
@@ -1818,7 +1943,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             loadComments(chapterId);
           } else {
             console.error('Server error:', data.error);
-            showNotification('Failed to add comment: ' + data.error, 'error');
+            showNotification('Failed to add comment: ' + (data.error || 'Unknown error'), 'error');
           }
         })
         .catch(error => {
@@ -1887,8 +2012,14 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       // Comment modal functionality
       document.getElementById('cancel-comment')?.addEventListener('click', function() {
-        document.getElementById('comment-modal').classList.add('hidden');
-        document.getElementById('comment-text').value = '';
+        const commentModal = document.getElementById('comment-modal');
+        const commentText = document.getElementById('comment-text');
+        if (commentModal) {
+          commentModal.classList.add('hidden');
+        }
+        if (commentText) {
+          commentText.value = '';
+        }
       });
 
       // Format Analysis Functions
@@ -2076,15 +2207,21 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       }
 
       document.getElementById('save-comment')?.addEventListener('click', function() {
-        const commentText = document.getElementById('comment-text').value.trim();
+        const commentTextElement = document.getElementById('comment-text');
+        if (!commentTextElement) return;
+        
+        const commentText = commentTextElement.value.trim();
         if (!commentText || !currentChapterId) return;
         
         // Use the addComment function
         addComment(commentText);
         
         // Close modal
-        document.getElementById('comment-modal').classList.add('hidden');
-        document.getElementById('comment-text').value = '';
+        const commentModal = document.getElementById('comment-modal');
+        if (commentModal) {
+          commentModal.classList.add('hidden');
+        }
+        commentTextElement.value = '';
         
         // Clear selection
         window.getSelection().removeAllRanges();
@@ -2156,14 +2293,20 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       document.getElementById('comment-modal')?.addEventListener('click', function(e) {
         if (e.target === this) {
           this.classList.add('hidden');
-          document.getElementById('comment-text').value = '';
+          const commentText = document.getElementById('comment-text');
+          if (commentText) {
+            commentText.value = '';
+          }
         }
       });
 
       // Close color picker when clicking outside
       document.addEventListener('click', function(e) {
         if (!e.target.closest('#color-picker-btn') && !e.target.closest('#color-picker')) {
-          document.getElementById('color-picker')?.classList.add('hidden');
+          const colorPicker = document.getElementById('color-picker');
+          if (colorPicker) {
+            colorPicker.classList.add('hidden');
+          }
         }
       });
       
