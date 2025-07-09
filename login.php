@@ -7,7 +7,23 @@ require_once 'includes/auth.php';
 $auth = new Auth();
 if ($auth->isLoggedIn()) {
     $role = $_SESSION['role'];
-    $redirect = $role === 'student' ? 'studentDashboard.php' : 'systemFunda.php';
+    
+    // Determine redirect based on role
+    switch ($role) {
+        case 'student':
+            $redirect = 'studentDashboard.php';
+            break;
+        case 'adviser':
+            $redirect = 'systemFunda.php';
+            break;
+        case 'admin':
+        case 'super_admin':
+            $redirect = 'admin_dashboard.php';
+            break;
+        default:
+            $redirect = 'studentDashboard.php';
+    }
+    
     header("Location: $redirect");
     exit();
 }

@@ -38,10 +38,27 @@ class Auth {
                     // Get the role from the database
                     $userRole = $user['role'];
                     
+                    // Determine redirect based on user role
+                    $redirect = 'studentDashboard.php'; // default
+                    switch ($userRole) {
+                        case 'student':
+                            $redirect = 'studentDashboard.php';
+                            break;
+                        case 'adviser':
+                            $redirect = 'systemFunda.php';
+                            break;
+                        case 'admin':
+                        case 'super_admin':
+                            $redirect = 'admin_dashboard.php';
+                            break;
+                        default:
+                            $redirect = 'studentDashboard.php';
+                    }
+                    
                     return [
                         'success' => true,
                         'message' => 'Login successful',
-                        'redirect' => $userRole === 'student' ? 'studentDashboard.php' : 'systemFunda.php'
+                        'redirect' => $redirect
                     ];
                 } else {
                     return ['success' => false, 'message' => 'Invalid password'];
@@ -91,10 +108,27 @@ class Auth {
             $stmt->bindParam(':department', $department);
 
             if ($stmt->execute()) {
+                // Determine redirect based on role
+                $redirect = 'studentDashboard.php'; // default
+                switch ($data['role']) {
+                    case 'student':
+                        $redirect = 'studentDashboard.php';
+                        break;
+                    case 'adviser':
+                        $redirect = 'systemFunda.php';
+                        break;
+                    case 'admin':
+                    case 'super_admin':
+                        $redirect = 'admin_dashboard.php';
+                        break;
+                    default:
+                        $redirect = 'studentDashboard.php';
+                }
+                
                 return [
                     'success' => true,
                     'message' => 'Registration successful',
-                    'redirect' => $data['role'] === 'student' ? 'studentDashboard.php' : 'systemFunda.php'
+                    'redirect' => $redirect
                 ];
             } else {
                 return ['success' => false, 'message' => 'Registration failed'];
