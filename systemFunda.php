@@ -1532,6 +1532,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         console.log('Initializing Word viewer for file ID:', fileId);
         console.log('Current chapter ID:', window.currentChapterId);
         
+        // Store the current file ID globally for fullscreen access
+        window.currentFileId = fileId;
+        
         // Fetch debug info first
         fetch(`api/document_review.php?action=debug_file&file_id=${fileId}`)
           .then(response => response.json())
@@ -3849,6 +3852,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       window.currentHighlightColor = '#ffeb3b';
     });
 
+    // Global fullscreen viewer instance
+    let fullscreenWordViewer = null;
+
     // Fullscreen view function
     function openFullscreenView(content, title) {
       // Create fullscreen modal if it doesn't exist
@@ -3862,6 +3868,25 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <div class="fullscreen-title" id="fullscreen-document-title">${title}</div>
             <div class="flex items-center space-x-4">
               <div class="flex items-center space-x-2">
+                <!-- Color picker for highlights -->
+                <div class="relative">
+                  <button id="fullscreen-color-picker-btn" class="toolbar-action-btn flex items-center">
+                    <div id="fullscreen-current-color" class="w-4 h-4 mr-2 rounded border border-gray-300" style="background-color: #ffeb3b;"></div>
+                    <i data-lucide="palette" class="w-4 h-4"></i>
+                  </button>
+                  <div id="fullscreen-color-picker" class="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 hidden z-50">
+                    <div class="grid grid-cols-4 gap-1">
+                      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #ffeb3b;" data-color="#ffeb3b" title="Yellow"></div>
+                      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #4caf50;" data-color="#4caf50" title="Green"></div>
+                      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #2196f3;" data-color="#2196f3" title="Blue"></div>
+                      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #ff9800;" data-color="#ff9800" title="Orange"></div>
+                      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #e91e63;" data-color="#e91e63" title="Pink"></div>
+                      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #9c27b0;" data-color="#9c27b0" title="Purple"></div>
+                      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #f44336;" data-color="#f44336" title="Red"></div>
+                      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #607d8b;" data-color="#607d8b" title="Blue Grey"></div>
+                    </div>
+                  </div>
+                </div>
                 <button id="fullscreen-highlight-btn" class="toolbar-action-btn">
                   <i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Highlight
                 </button>
@@ -3878,47 +3903,187 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
           </div>
           <div class="fullscreen-content">
-            <div class="fullscreen-document" id="fullscreen-document-content">
-              ${content}
+            <div id="fullscreen-word-viewer-container" class="fullscreen-document">
+              <!-- WordViewer will be initialized here -->
             </div>
           </div>
         `;
         document.body.appendChild(fullscreenModal);
         lucide.createIcons();
 
-        // Add close functionality
-        const closeBtn = fullscreenModal.querySelector('#close-fullscreen');
-        closeBtn.addEventListener('click', function() {
-          fullscreenModal.classList.remove('active');
-          document.body.style.overflow = 'auto';
-        });
+        // Initialize fullscreen-specific event handlers
+        setupFullscreenEventHandlers(fullscreenModal);
+      }
 
-        // Copy download link
-        const downloadBtn = document.getElementById('download-document-btn');
-        const fullscreenDownloadBtn = fullscreenModal.querySelector('#fullscreen-download-btn');
-        if (downloadBtn && fullscreenDownloadBtn) {
-          fullscreenDownloadBtn.href = downloadBtn.href;
-        }
-      } else {
-        // Update existing modal
-        fullscreenModal.querySelector('#fullscreen-document-title').textContent = title;
-        fullscreenModal.querySelector('#fullscreen-document-content').innerHTML = content;
-        lucide.createIcons();
+      // Update modal title
+      fullscreenModal.querySelector('#fullscreen-document-title').textContent = title;
+
+      // Copy download link
+      const downloadBtn = document.getElementById('download-document-btn');
+      const fullscreenDownloadBtn = fullscreenModal.querySelector('#fullscreen-download-btn');
+      if (downloadBtn && fullscreenDownloadBtn) {
+        fullscreenDownloadBtn.href = downloadBtn.href;
+      }
+
+      // Initialize or update WordViewer in fullscreen
+      const fullscreenContainer = fullscreenModal.querySelector('#fullscreen-word-viewer-container');
+      fullscreenContainer.innerHTML = '<div id="fullscreen-word-viewer-content" class="h-full"></div>';
+      
+      // Create a new WordViewer instance for fullscreen
+      fullscreenWordViewer = new WordViewer('fullscreen-word-viewer-content', {
+        showComments: true,
+        showToolbar: false, // We have our own toolbar
+        allowZoom: true
+      });
+
+      // Load the same document that's currently being viewed
+      if (window.currentFileId) {
+        fullscreenWordViewer.loadDocument(window.currentFileId);
       }
 
       // Show the modal
       fullscreenModal.classList.add('active');
       document.body.style.overflow = 'hidden';
+    }
+
+    // Setup event handlers for fullscreen mode
+    function setupFullscreenEventHandlers(modal) {
+      // Close functionality
+      const closeBtn = modal.querySelector('#close-fullscreen');
+      closeBtn.addEventListener('click', function() {
+        closeFullscreenView();
+      });
+
+      // Color picker functionality for fullscreen
+      const colorPickerBtn = modal.querySelector('#fullscreen-color-picker-btn');
+      const colorPicker = modal.querySelector('#fullscreen-color-picker');
+      const currentColor = modal.querySelector('#fullscreen-current-color');
+
+      if (colorPickerBtn) {
+        colorPickerBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          colorPicker.classList.toggle('hidden');
+        });
+      }
+
+      // Color selection for fullscreen
+      const colorOptions = modal.querySelectorAll('.color-option');
+      colorOptions.forEach(option => {
+        option.addEventListener('click', function() {
+          const color = this.dataset.color;
+          currentColor.style.backgroundColor = color;
+          colorPicker.classList.add('hidden');
+          
+          // Update highlight color globally for fullscreen
+          window.currentHighlightColor = color;
+        });
+      });
+
+      // Highlight button functionality
+      const highlightBtn = modal.querySelector('#fullscreen-highlight-btn');
+      if (highlightBtn) {
+        highlightBtn.addEventListener('click', function() {
+          toggleFullscreenHighlightMode();
+        });
+      }
+
+      // Comment button functionality  
+      const commentBtn = modal.querySelector('#fullscreen-comment-btn');
+      if (commentBtn) {
+        commentBtn.addEventListener('click', function() {
+          enableFullscreenCommentMode();
+        });
+      }
+
+      // Close color picker when clicking outside
+      document.addEventListener('click', function(e) {
+        if (colorPicker && !colorPicker.contains(e.target) && !colorPickerBtn.contains(e.target)) {
+          colorPicker.classList.add('hidden');
+        }
+      });
 
       // Handle ESC key to close
       const handleEscape = function(e) {
         if (e.key === 'Escape') {
-          fullscreenModal.classList.remove('active');
-          document.body.style.overflow = 'auto';
+          closeFullscreenView();
           document.removeEventListener('keydown', handleEscape);
         }
       };
       document.addEventListener('keydown', handleEscape);
+    }
+
+    // Close fullscreen view
+    function closeFullscreenView() {
+      const fullscreenModal = document.getElementById('document-fullscreen-modal');
+      if (fullscreenModal) {
+        fullscreenModal.classList.remove('active');
+        document.body.style.overflow = 'auto';
+        
+        // Clean up fullscreen WordViewer instance
+        if (fullscreenWordViewer) {
+          fullscreenWordViewer = null;
+        }
+
+        // Reset highlight mode
+        window.isHighlightMode = false;
+        const highlightBtn = document.getElementById('fullscreen-highlight-btn');
+        if (highlightBtn) {
+          highlightBtn.textContent = 'Highlight';
+          highlightBtn.className = 'toolbar-action-btn';
+        }
+      }
+    }
+
+    // Toggle highlight mode in fullscreen
+    function toggleFullscreenHighlightMode() {
+      const highlightBtn = document.getElementById('fullscreen-highlight-btn');
+      
+      if (window.isHighlightMode) {
+        // Exit highlight mode
+        window.isHighlightMode = false;
+        highlightBtn.innerHTML = '<i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Highlight';
+        highlightBtn.className = 'toolbar-action-btn';
+        document.body.style.cursor = 'default';
+      } else {
+        // Enter highlight mode
+        window.isHighlightMode = true;
+        highlightBtn.innerHTML = '<i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Exit Highlight';
+        highlightBtn.className = 'toolbar-action-btn bg-yellow-200 text-yellow-800';
+        document.body.style.cursor = 'crosshair';
+      }
+      
+      // Refresh icons
+      lucide.createIcons();
+    }
+
+    // Enable comment mode in fullscreen
+    function enableFullscreenCommentMode() {
+      // Reset any highlight mode
+      window.isHighlightMode = false;
+      const highlightBtn = document.getElementById('fullscreen-highlight-btn');
+      if (highlightBtn) {
+        highlightBtn.innerHTML = '<i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Highlight';
+        highlightBtn.className = 'toolbar-action-btn';
+      }
+      
+      document.body.style.cursor = 'text';
+      
+      // Show notification
+      if (typeof showNotification === 'function') {
+        showNotification('Click on any paragraph to add a comment', 'info');
+      } else {
+        // Fallback notification
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        notification.textContent = 'Click on any paragraph to add a comment';
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+          notification.remove();
+        }, 3000);
+      }
+      
+      lucide.createIcons();
     }
   </script>
 

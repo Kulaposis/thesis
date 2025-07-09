@@ -444,6 +444,117 @@
     min-height: calc(100vh - 200px);
 }
 
+/* Fullscreen toolbar styles */
+.toolbar-action-btn {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.toolbar-action-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.toolbar-action-btn:active {
+    transform: translateY(0);
+}
+
+/* Color picker styles for fullscreen */
+#fullscreen-color-picker {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    min-width: 120px;
+    z-index: 1001;
+}
+
+.color-option {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.color-option:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Fullscreen word viewer content styles */
+.fullscreen-document .word-viewer {
+    background: transparent;
+    padding: 0;
+}
+
+.fullscreen-document .word-document {
+    background: white;
+    box-shadow: none;
+    margin: 0;
+    max-height: none;
+}
+
+.fullscreen-document .word-content {
+    padding: 32px;
+    max-width: none;
+}
+
+/* Enhanced fullscreen paragraph interactions */
+.fullscreen-document .word-paragraph {
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.fullscreen-document .word-paragraph:hover {
+    background: #f8fafc;
+    padding: 8px;
+    margin: -8px;
+    border-radius: 6px;
+}
+
+.fullscreen-document .word-paragraph.commented {
+    border-left: 4px solid #3b82f6;
+    padding-left: 12px;
+}
+
+.fullscreen-document .word-paragraph.highlighted {
+    background: linear-gradient(120deg, #fef3c7 0%, #fbbf24 20%, #fef3c7 100%);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Better scrolling in fullscreen */
+.fullscreen-content::-webkit-scrollbar {
+    width: 12px;
+}
+
+.fullscreen-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.fullscreen-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 6px;
+}
+
+.fullscreen-content::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
 /* Enhanced highlighting styles */
 .text-highlight {
     background: linear-gradient(120deg, #fef3c7 0%, #fbbf24 20%, #fef3c7 100%);

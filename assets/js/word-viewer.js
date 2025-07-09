@@ -414,9 +414,7 @@ class WordViewer {
     saveComment(paragraphId, commentText) {
         if (!window.currentChapterId) {
             console.error('No current chapter ID');
-            if (typeof showNotification === 'function') {
-                showNotification('Error: No chapter selected', 'error');
-            }
+            this.showNotification('Error: No chapter selected', 'error');
             return;
         }
         
@@ -432,12 +430,9 @@ class WordViewer {
             paragraph_id: paragraphId
         });
         
-        const url = 'api/comments.php';
+        // Use relative URL for API calls
+        const url = window.location.pathname.includes('systemFunda.php') ? 'api/comments.php' : '../api/comments.php';
         console.log('Making request to URL:', url);
-        console.log('FormData contents:');
-        for (const pair of formData.entries()) {
-            console.log(pair[0] + ': ' + pair[1]);
-        }
         
         fetch(url, {
             method: 'POST',
@@ -465,15 +460,15 @@ class WordViewer {
             console.log('Parsed response data:', data);
             
             if (data.success) {
-                // Mark paragraph as commented
-                const paragraph = document.getElementById(paragraphId);
-                if (paragraph) {
+                // Mark paragraph as commented in all instances (regular and fullscreen)
+                const paragraphs = document.querySelectorAll(`[id="${paragraphId}"]`);
+                paragraphs.forEach(paragraph => {
                     paragraph.classList.add('commented');
                     const indicator = paragraph.querySelector('.comment-indicator');
                     if (indicator) {
                         indicator.style.display = 'flex';
                     }
-                }
+                });
                 
                 // Reload comments in sidebar if function exists
                 if (typeof loadComments === 'function') {
@@ -481,23 +476,38 @@ class WordViewer {
                 }
                 
                 // Show success notification
-                if (typeof showNotification === 'function') {
-                    showNotification('Comment added successfully', 'success');
-                }
+                this.showNotification('Comment added successfully', 'success');
             } else {
                 const errorMessage = data.error || data.message || 'Unknown error occurred';
                 console.error('Failed to save comment:', errorMessage);
-                if (typeof showNotification === 'function') {
-                    showNotification('Failed to add comment: ' + errorMessage, 'error');
-                }
+                this.showNotification('Failed to add comment: ' + errorMessage, 'error');
             }
         })
         .catch(error => {
             console.error('Error saving comment:', error);
-            if (typeof showNotification === 'function') {
-                showNotification('Error adding comment: ' + error.message, 'error');
-            }
+            this.showNotification('Error adding comment: ' + error.message, 'error');
         });
+    }
+    
+    // Internal notification method for WordViewer
+    showNotification(message, type = 'info') {
+        if (typeof showNotification === 'function') {
+            showNotification(message, type);
+        } else {
+            // Fallback notification system
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 text-white ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 
+                type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+            }`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
     }
     
     addTextHighlight() {
@@ -515,7 +525,10 @@ class WordViewer {
         formData.append('start_offset', 0);
         formData.append('end_offset', window.selectedText.length);
         
-        fetch('api/comments.php', {
+        // Use relative URL for API calls
+        const url = window.location.pathname.includes('systemFunda.php') ? 'api/comments.php' : '../api/comments.php';
+        
+        fetch(url, {
             method: 'POST',
             body: formData
         })
@@ -555,31 +568,39 @@ class WordViewer {
                 window.selectedRange = null;
                 window.selectedParagraphId = null;
                 
-                // Exit highlight mode
+                // Exit highlight mode and update both regular and fullscreen buttons
                 window.isHighlightMode = false;
+                
+                // Update regular highlight button
                 const highlightBtn = document.getElementById('highlight-btn');
                 if (highlightBtn) {
                     highlightBtn.textContent = 'Highlight';
                     highlightBtn.className = 'px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm hover:bg-yellow-200';
                 }
                 
-                // Show success notification
-                if (typeof showNotification === 'function') {
-                    showNotification('Text highlighted successfully', 'success');
+                // Update fullscreen highlight button
+                const fullscreenHighlightBtn = document.getElementById('fullscreen-highlight-btn');
+                if (fullscreenHighlightBtn) {
+                    fullscreenHighlightBtn.innerHTML = '<i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Highlight';
+                    fullscreenHighlightBtn.className = 'toolbar-action-btn';
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
                 }
+                
+                document.body.style.cursor = 'default';
+                
+                // Show success notification
+                this.showNotification('Text highlighted successfully', 'success');
             } else {
                 const errorMessage = data.error || data.message || 'Unknown error occurred';
                 console.error('Failed to add highlight:', errorMessage);
-                if (typeof showNotification === 'function') {
-                    showNotification('Failed to add highlight: ' + errorMessage, 'error');
-                }
+                this.showNotification('Failed to add highlight: ' + errorMessage, 'error');
             }
         })
         .catch(error => {
             console.error('Error adding highlight:', error);
-            if (typeof showNotification === 'function') {
-                showNotification('Error adding highlight: ' + error.message, 'error');
-            }
+            this.showNotification('Error adding highlight: ' + error.message, 'error');
         });
     }
     
