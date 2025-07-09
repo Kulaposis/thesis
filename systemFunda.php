@@ -33,10 +33,12 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Thesis/Capstone Management Dashboard</title>
+  <title>Thesis Management Dashboard - Adviser</title>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Modern UI Framework -->
+  <link rel="stylesheet" href="assets/css/modern-ui.css">
   <!-- Word Viewer Styles and Scripts -->
   <link rel="stylesheet" href="assets/css/word-viewer.css">
   <script src="assets/js/word-viewer.js"></script>
@@ -136,10 +138,10 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
   </style>
 </head>
 
-<body class="bg-gray-50 font-sans text-sm antialiased">
+<body class="bg-gray-25 font-sans text-sm antialiased">
   <div class="flex min-h-screen">
     <!-- Sidebar -->
-    <aside class="w-64 bg-white shadow-md p-4 sidebar-transition hidden md:block">
+    <aside class="sidebar w-64 p-6 sidebar-transition hidden md:block">
       <div class="flex items-center mb-6">
         <div class="bg-blue-100 p-2 rounded-lg mr-3">
           <i data-lucide="book-open" class="w-6 h-6 text-blue-600"></i>
@@ -148,29 +150,29 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           THESIS/CAPSTONE<br>MANAGEMENT
         </h1>
       </div>
-      <nav class="space-y-1 text-gray-700 font-medium">
-        <a href="#" data-tab="dashboard" class="flex items-center gap-3 p-3 sidebar-item active-tab hover:bg-blue-50 rounded-lg">
+      <nav class="space-y-2">
+        <a href="#" data-tab="dashboard" class="nav-link sidebar-item active">
           <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
         </a>
-        <a href="#" data-tab="students" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="students" class="nav-link sidebar-item">
           <i data-lucide="users" class="w-5 h-5"></i> Students
         </a>
-        <a href="#" data-tab="theses" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="theses" class="nav-link sidebar-item">
           <i data-lucide="book" class="w-5 h-5"></i> Theses
         </a>
-        <a href="#" data-tab="document-review" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="document-review" class="nav-link sidebar-item">
           <i data-lucide="file-edit" class="w-5 h-5"></i> Document Review
         </a>
-        <a href="#" data-tab="feedback" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="feedback" class="nav-link sidebar-item">
           <i data-lucide="message-circle" class="w-5 h-5"></i> Feedback
         </a>
-        <a href="#" data-tab="timeline" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="timeline" class="nav-link sidebar-item">
           <i data-lucide="clock" class="w-5 h-5"></i> Timeline
         </a>
-        <a href="#" data-tab="activity-logs" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="activity-logs" class="nav-link sidebar-item">
           <i data-lucide="activity" class="w-5 h-5"></i> Activity Logs
         </a>
-        <a href="#" data-tab="reports" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="reports" class="nav-link sidebar-item">
           <i data-lucide="bar-chart" class="w-5 h-5"></i> Reports
         </a>
       </nav>
@@ -196,25 +198,49 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </button>
 
     <!-- Main Content -->
-    <main class="flex-1 p-4 md:p-6">
-      <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 class="text-xl font-semibold">Dashboard</h2>
-          <p class="text-gray-500 text-sm">Welcome back, <?php echo htmlspecialchars($user['full_name']); ?></p>
+    <main class="flex-1 p-6 md:p-8">
+      <div class="flex justify-between items-center mb-8">
+        <div class="fade-in">
+          <h2 class="heading-lg text-gradient">Dashboard</h2>
+          <p class="body-sm text-gray-500 mt-1">Welcome back, <?php echo htmlspecialchars($user['full_name']); ?></p>
         </div>
-        <div class="flex items-center space-x-4">
-          <button class="relative text-gray-600 hover:text-gray-900">
+        <div class="flex items-center gap-4">
+          <!-- Notifications -->
+          <button class="btn btn-ghost hover-lift relative">
             <i data-lucide="bell" class="w-5 h-5"></i>
-            <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+            <span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
+              <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
+            </span>
           </button>
+          
+          <!-- User Menu -->
           <div class="relative group">
-            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold cursor-pointer">
-              <?php echo strtoupper(substr($user['full_name'], 0, 1)); ?>
-            </div>
-            <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
-              <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
-              <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
-              <a href="logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+            <button class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors">
+              <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
+                <?php echo strtoupper(substr($user['full_name'], 0, 1)); ?>
+              </div>
+              <div class="hidden md:block text-left">
+                <p class="font-medium text-gray-800"><?php echo htmlspecialchars($user['full_name']); ?></p>
+                <p class="text-xs text-gray-500">Adviser</p>
+              </div>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+            </button>
+            
+            <div class="absolute right-0 mt-2 w-64 card shadow-xl py-2 z-50 hidden group-hover:block">
+              <div class="px-4 py-3 border-b border-gray-100">
+                <p class="font-medium text-gray-800"><?php echo htmlspecialchars($user['full_name']); ?></p>
+                <p class="text-sm text-gray-500"><?php echo htmlspecialchars($user['email']); ?></p>
+              </div>
+              <a href="#" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <i data-lucide="user" class="w-4 h-4"></i> Profile
+              </a>
+              <a href="#" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <i data-lucide="settings" class="w-4 h-4"></i> Settings
+              </a>
+              <hr class="my-2">
+              <a href="logout.php" class="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+              </a>
             </div>
           </div>
         </div>
@@ -223,36 +249,65 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       <!-- Dashboard Tab Content -->
       <div id="dashboard-content" class="tab-content">
         <!-- Summary Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div class="bg-white p-4 rounded-lg shadow flex items-center card-hover">
-            <div class="bg-blue-100 p-3 rounded-full mr-4">
-              <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+          <div class="card card-interactive p-6 hover-lift">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-4 mb-3">
+                  <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i data-lucide="file-text" class="w-6 h-6 text-white"></i>
+                  </div>
+                  <div>
+                    <p class="heading-sm text-gray-800"><?php echo $stats['in_progress']; ?></p>
+                    <p class="body-sm text-gray-500">In Progress</p>
+                  </div>
+                </div>
+              </div>
+              <span class="status-badge status-info">Active</span>
             </div>
-            <div>
-              <p class="font-bold text-2xl"><?php echo $stats['in_progress']; ?></p>
-              <p class="text-gray-500 text-sm">In Progress</p>
+            <div class="progress-container mt-4">
+              <div class="progress-bar" style="width: 65%"></div>
             </div>
-            <div class="ml-auto text-sm text-blue-600">Active</div>
           </div>
-          <div class="bg-white p-4 rounded-lg shadow flex items-center card-hover">
-            <div class="bg-amber-100 p-3 rounded-full mr-4">
-              <i data-lucide="alert-circle" class="w-5 h-5 text-amber-600"></i>
+          
+          <div class="card card-interactive p-6 hover-lift">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-4 mb-3">
+                  <div class="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i data-lucide="clock" class="w-6 h-6 text-white"></i>
+                  </div>
+                  <div>
+                    <p class="heading-sm text-gray-800"><?php echo $stats['for_review']; ?></p>
+                    <p class="body-sm text-gray-500">For Review</p>
+                  </div>
+                </div>
+              </div>
+              <span class="status-badge status-warning">Pending</span>
             </div>
-            <div>
-              <p class="font-bold text-2xl"><?php echo $stats['for_review']; ?></p>
-              <p class="text-gray-500 text-sm">For Review</p>
+            <div class="progress-container mt-4">
+              <div class="progress-bar" style="width: 35%; background: linear-gradient(90deg, var(--warning-500), var(--warning-400));"></div>
             </div>
-            <div class="ml-auto text-sm text-amber-600">Pending</div>
           </div>
-          <div class="bg-white p-4 rounded-lg shadow flex items-center card-hover">
-            <div class="bg-green-100 p-3 rounded-full mr-4">
-              <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+          
+          <div class="card card-interactive p-6 hover-lift">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-4 mb-3">
+                  <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+                  </div>
+                  <div>
+                    <p class="heading-sm text-gray-800"><?php echo $stats['approved']; ?></p>
+                    <p class="body-sm text-gray-500">Approved</p>
+                  </div>
+                </div>
+              </div>
+              <span class="status-badge status-success">Complete</span>
             </div>
-            <div>
-              <p class="font-bold text-2xl"><?php echo $stats['approved']; ?></p>
-              <p class="text-gray-500 text-sm">Approved</p>
+            <div class="progress-container mt-4">
+              <div class="progress-bar" style="width: 85%; background: linear-gradient(90deg, var(--success-500), var(--success-400));"></div>
             </div>
-            <div class="ml-auto text-sm text-green-600">Complete</div>
           </div>
         </div>
 
@@ -3921,6 +3976,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       document.addEventListener('keydown', handleEscape);
     }
   </script>
+
+  <!-- Modern UI Framework -->
+  <script src="assets/js/modern-ui.js"></script>
 
   <!-- Document Fullscreen Modal (will be created dynamically) -->
 
