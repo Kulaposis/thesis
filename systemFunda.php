@@ -1851,7 +1851,18 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         function resetHighlightMode() {
           highlightMode = false;
           container.style.cursor = 'default';
-          if (highlightBtn) highlightBtn.textContent = 'Highlight';
+          if (highlightBtn) {
+            // Handle different button text formats
+            const currentText = highlightBtn.textContent || highlightBtn.innerHTML;
+            if (currentText.includes('Cancel')) {
+              highlightBtn.innerHTML = highlightBtn.innerHTML.replace('Cancel Highlight', 'Highlight');
+            }
+            // Reset button styling
+            highlightBtn.classList.remove('bg-red-100', 'text-red-800');
+            if (!highlightBtn.classList.contains('toolbar-action-btn')) {
+              highlightBtn.classList.add('toolbar-action-btn');
+            }
+          }
         }
 
         if (!container) return;
@@ -1859,7 +1870,17 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         highlightBtn.addEventListener('click', function() {
           highlightMode = !highlightMode;
           container.style.cursor = highlightMode ? 'crosshair' : 'default';
-          this.textContent = highlightMode ? 'Cancel Highlight' : 'Highlight';
+          
+          if (highlightMode) {
+            // Update button appearance for active highlight mode
+            const currentHTML = this.innerHTML;
+            this.innerHTML = currentHTML.replace('Highlight', 'Cancel Highlight');
+            this.classList.add('bg-red-100', 'text-red-800');
+            this.classList.remove('toolbar-action-btn');
+            showNotification('Highlight mode active. Select text to highlight it.', 'info');
+          } else {
+            resetHighlightMode();
+          }
         });
 
         container.addEventListener('mouseup', function(e) {
@@ -1868,23 +1889,71 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             if (selection.toString().trim().length > 0) {
               selectedText = selection.toString().trim();
               selectedRange = selection.getRangeAt(0);
-              // Use the addHighlight logic from main view
-              if (typeof window.currentChapterId !== 'undefined' && window.currentChapterId) {
+              
+              // Ensure we have a chapter ID
+              if (window.currentChapterId) {
                 addHighlightGeneric(selectedText, selectedRange, window.currentChapterId, container);
+                resetHighlightMode();
+              } else {
+                showNotification('No chapter selected. Please select a chapter first.', 'warning');
               }
-              // Reset
-              resetHighlightMode();
             }
+          }
+        });
+
+        // Handle text selection events for better UX
+        container.addEventListener('mousedown', function(e) {
+          if (highlightMode) {
+            // Clear any existing selection
+            window.getSelection().removeAllRanges();
           }
         });
       }
 
       function enableCommentMode(container, commentBtn) {
         if (!container) return;
+        
+        let commentMode = false;
+        
+        function resetCommentMode() {
+          commentMode = false;
+          container.style.cursor = 'default';
+          if (commentBtn) {
+            commentBtn.textContent = commentBtn.textContent.replace('Cancel Comment', 'Comment');
+            commentBtn.classList.remove('bg-red-100', 'text-red-800');
+            commentBtn.classList.add('toolbar-action-btn');
+          }
+        }
+        
         commentBtn.addEventListener('click', function() {
-          // For now, show a notification or modal
-          showNotification('Click on any paragraph to add a comment to it.', 'info');
-          // You can expand this to allow paragraph-based commenting in fullscreen
+          commentMode = !commentMode;
+          container.style.cursor = commentMode ? 'crosshair' : 'default';
+          
+          if (commentMode) {
+            this.textContent = this.textContent.replace('Comment', 'Cancel Comment');
+            this.classList.add('bg-red-100', 'text-red-800');
+            this.classList.remove('toolbar-action-btn');
+            showNotification('Comment mode active. Click on any paragraph to add a comment.', 'info');
+          } else {
+            resetCommentMode();
+          }
+        });
+        
+        // Add click handler for paragraphs in the container
+        container.addEventListener('click', function(e) {
+          if (!commentMode) return;
+          
+          // Find the closest paragraph element
+          const paragraph = e.target.closest('.word-paragraph, p, div[data-paragraph-id]');
+          if (paragraph) {
+            const paragraphText = paragraph.textContent.trim();
+            const paragraphId = paragraph.dataset.paragraphId || paragraph.id || 'para_' + Date.now();
+            
+            if (paragraphText.length > 0) {
+              openParagraphCommentModal(paragraphId, paragraphText);
+              resetCommentMode();
+            }
+          }
         });
       }
 
@@ -1912,6 +1981,16 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               highlightSpan.style.backgroundColor = window.currentHighlightColor || '#ffeb3b';
               highlightSpan.className = 'highlight-marker';
               highlightSpan.dataset.highlightId = data.highlight_id;
+              
+              // Add context menu for removing highlights
+              highlightSpan.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (confirm('Remove this highlight?')) {
+                  removeHighlight(data.highlight_id);
+                  highlightSpan.remove();
+                }
+              });
+              
               try {
                 selectedRange.surroundContents(highlightSpan);
               } catch (e) {
@@ -1921,12 +2000,313 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               }
             }
             window.getSelection().removeAllRanges();
+            showNotification('Text highlighted successfully!', 'success');
           } else {
-            showError('Failed to add highlight: ' + data.error);
+            showNotification('Failed to add highlight: ' + data.error, 'error');
           }
         })
         .catch(error => {
-          showError('Failed to add highlight');
+          showNotification('Failed to add highlight: ' + error.message, 'error');
+        });
+      }
+
+      // Generic addComment function for both main and fullscreen
+      function addCommentGeneric(commentText, chapterId, paragraphId = null) {
+        if (!commentText || !chapterId) return;
+        
+        const formData = new FormData();
+        formData.append('action', 'add_comment');
+        formData.append('chapter_id', chapterId);
+        formData.append('comment_text', commentText);
+        
+        if (paragraphId) {
+          formData.append('paragraph_id', paragraphId);
+        }
+
+        fetch('api/document_review.php', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            showNotification('Comment added successfully!', 'success');
+            
+            // Reload comments in sidebar if function exists and we're not in fullscreen
+            if (typeof loadComments === 'function' && !document.querySelector('.document-fullscreen-modal.active')) {
+              loadComments(chapterId);
+            }
+          } else {
+            showNotification('Failed to add comment: ' + data.error, 'error');
+          }
+        })
+        .catch(error => {
+          showNotification('Failed to add comment: ' + error.message, 'error');
+        });
+      }
+
+      // Open paragraph comment modal (for use in fullscreen and main view)
+      function openParagraphCommentModal(paragraphId, paragraphText) {
+        // Remove existing modal if any
+        const existingModal = document.getElementById('paragraph-comment-modal');
+        if (existingModal) {
+          existingModal.remove();
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'paragraph-comment-modal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+          <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
+            <h3 class="text-lg font-semibold mb-4">Add Comment to Paragraph</h3>
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Selected Paragraph:</label>
+              <div class="p-3 bg-gray-100 rounded text-sm max-h-32 overflow-y-auto border">${paragraphText.substring(0, 500)}${paragraphText.length > 500 ? '...' : ''}</div>
+            </div>
+            <div class="mb-4">
+              <label for="paragraph-comment-text" class="block text-sm font-medium text-gray-700 mb-2">Your Comment:</label>
+              <textarea id="paragraph-comment-text" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your comment about this paragraph..."></textarea>
+            </div>
+            <div class="flex justify-end space-x-2">
+              <button id="cancel-paragraph-comment" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button id="save-paragraph-comment" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save Comment</button>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Focus the textarea
+        const textarea = document.getElementById('paragraph-comment-text');
+        setTimeout(() => textarea.focus(), 100);
+        
+        // Add event listeners
+        document.getElementById('cancel-paragraph-comment').addEventListener('click', () => {
+          modal.remove();
+        });
+        
+        document.getElementById('save-paragraph-comment').addEventListener('click', () => {
+          const commentText = document.getElementById('paragraph-comment-text').value.trim();
+          if (commentText && window.currentChapterId) {
+            addCommentGeneric(commentText, window.currentChapterId, paragraphId);
+            modal.remove();
+          } else {
+            showNotification('Please enter a comment', 'warning');
+          }
+        });
+        
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.remove();
+          }
+        });
+        
+        // Close on Escape key
+        const handleEscape = (e) => {
+          if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', handleEscape);
+          }
+        };
+        document.addEventListener('keydown', handleEscape);
+      }
+
+      // Load highlights in fullscreen view
+      function loadHighlightsInFullscreen(chapterId) {
+        if (!chapterId) return;
+        
+        fetch(`api/document_review.php?action=get_highlights&chapter_id=${chapterId}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success && data.highlights) {
+              applyHighlightsToFullscreen(data.highlights);
+            }
+          })
+          .catch(error => console.error('Error loading highlights for fullscreen:', error));
+          
+        // Also load comments to mark paragraphs
+        fetch(`api/document_review.php?action=get_comments&chapter_id=${chapterId}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success && data.comments) {
+              markCommentedParagraphsInFullscreen(data.comments);
+            }
+          })
+          .catch(error => console.error('Error loading comments for fullscreen:', error));
+      }
+
+      // Apply highlights to fullscreen content
+      function applyHighlightsToFullscreen(highlights) {
+        const fullscreenContent = document.querySelector('#fullscreen-document-content .word-content');
+        if (!fullscreenContent) return;
+        
+        highlights.forEach(highlight => {
+          // Find text nodes containing the highlighted text
+          const walker = document.createTreeWalker(
+            fullscreenContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+          );
+          
+          let node;
+          while (node = walker.nextNode()) {
+            const text = node.textContent;
+            const highlightText = highlight.highlighted_text;
+            const index = text.indexOf(highlightText);
+            
+            if (index !== -1) {
+              // Create highlight span
+              const highlightSpan = document.createElement('mark');
+              highlightSpan.style.backgroundColor = highlight.highlight_color || '#ffeb3b';
+              highlightSpan.className = 'highlight-marker fullscreen-highlight';
+              highlightSpan.dataset.highlightId = highlight.id;
+              highlightSpan.title = `Highlighted by ${highlight.adviser_name}`;
+              
+              // Add context menu for removing highlights
+              highlightSpan.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (confirm('Remove this highlight?')) {
+                  removeHighlight(highlight.id);
+                  highlightSpan.outerHTML = highlightSpan.innerHTML;
+                }
+              });
+              
+              try {
+                // Split the text node and wrap the highlighted portion
+                const beforeText = text.substring(0, index);
+                const afterText = text.substring(index + highlightText.length);
+                
+                if (beforeText) {
+                  const beforeNode = document.createTextNode(beforeText);
+                  node.parentNode.insertBefore(beforeNode, node);
+                }
+                
+                highlightSpan.textContent = highlightText;
+                node.parentNode.insertBefore(highlightSpan, node);
+                
+                if (afterText) {
+                  const afterNode = document.createTextNode(afterText);
+                  node.parentNode.insertBefore(afterNode, node);
+                }
+                
+                // Remove the original text node
+                node.parentNode.removeChild(node);
+                break; // Found and processed this highlight
+              } catch (e) {
+                console.error('Error applying highlight:', e);
+              }
+            }
+          }
+        });
+      }
+
+      // Mark paragraphs that have comments in fullscreen
+      function markCommentedParagraphsInFullscreen(comments) {
+        const fullscreenContent = document.querySelector('#fullscreen-document-content .word-content');
+        if (!fullscreenContent) return;
+        
+        // Group comments by paragraph
+        const paragraphComments = {};
+        comments.forEach(comment => {
+          if (comment.paragraph_id) {
+            if (!paragraphComments[comment.paragraph_id]) {
+              paragraphComments[comment.paragraph_id] = [];
+            }
+            paragraphComments[comment.paragraph_id].push(comment);
+          }
+        });
+        
+        // Mark paragraphs with comments
+        Object.keys(paragraphComments).forEach(paragraphId => {
+          const paragraph = fullscreenContent.querySelector(`[data-paragraph-id="${paragraphId}"], #${paragraphId}`);
+          if (paragraph) {
+            paragraph.classList.add('commented');
+            
+            // Add comment indicator if it doesn't exist
+            let indicator = paragraph.querySelector('.comment-indicator');
+            if (!indicator) {
+              indicator = document.createElement('div');
+              indicator.className = 'comment-indicator';
+              indicator.style.display = 'flex';
+              indicator.innerHTML = '<i data-lucide="message-circle" class="w-4 h-4"></i>';
+              paragraph.appendChild(indicator);
+              
+              // Add click handler to show comments
+              indicator.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showParagraphCommentsModal(paragraphId, paragraphComments[paragraphId]);
+              });
+            }
+          }
+        });
+        
+        // Refresh Lucide icons
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
+      }
+
+      // Show comments for a specific paragraph
+      function showParagraphCommentsModal(paragraphId, comments) {
+        // Remove existing modal if any
+        const existingModal = document.getElementById('paragraph-comments-view-modal');
+        if (existingModal) {
+          existingModal.remove();
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'paragraph-comments-view-modal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+          <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
+            <h3 class="text-lg font-semibold mb-4">Comments for this Paragraph</h3>
+            <div class="space-y-3 mb-4">
+              ${comments.map(comment => `
+                <div class="border rounded-lg p-3 bg-gray-50">
+                  <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center gap-2">
+                      <div class="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        ${comment.adviser_name ? comment.adviser_name.charAt(0).toUpperCase() : 'A'}
+                      </div>
+                      <span class="text-sm font-medium">${comment.adviser_name || 'Adviser'}</span>
+                    </div>
+                    <span class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleString()}</span>
+                  </div>
+                  <p class="text-sm text-gray-700">${comment.comment_text}</p>
+                </div>
+              `).join('')}
+            </div>
+            <div class="flex justify-between">
+              <button id="add-more-comments" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Add Another Comment</button>
+              <button id="close-comments-view" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Close</button>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Add event listeners
+        document.getElementById('close-comments-view').addEventListener('click', () => {
+          modal.remove();
+        });
+        
+        document.getElementById('add-more-comments').addEventListener('click', () => {
+          modal.remove();
+          const paragraph = document.querySelector(`[data-paragraph-id="${paragraphId}"], #${paragraphId}`);
+          if (paragraph) {
+            openParagraphCommentModal(paragraphId, paragraph.textContent.trim());
+          }
+        });
+        
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.remove();
+          }
         });
       }
 
@@ -4216,12 +4596,41 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <div class="fullscreen-title" id="fullscreen-document-title">${title}</div>
             <div class="flex items-center space-x-4">
               <div class="flex items-center space-x-2">
-                <button id="fullscreen-highlight-btn" class="toolbar-action-btn">
-                  <i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Highlight
-                </button>
+                <!-- Highlight Controls -->
+                <div class="relative">
+                  <button id="fullscreen-highlight-btn" class="toolbar-action-btn">
+                    <i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Highlight
+                  </button>
+                  <div class="relative ml-2">
+                    <button id="fullscreen-color-picker-btn" class="toolbar-action-btn p-2" title="Choose Highlight Color">
+                      <div id="fullscreen-current-color" class="w-4 h-4 rounded-full border-2 border-white" style="background-color: #ffeb3b;"></div>
+                    </button>
+                    <div id="fullscreen-color-picker" class="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-3 hidden z-50">
+                      <div class="grid grid-cols-4 gap-2">
+                        <button class="fullscreen-color-option w-6 h-6 rounded-full border-2 border-gray-300" data-color="#ffeb3b" style="background-color: #ffeb3b;" title="Yellow"></button>
+                        <button class="fullscreen-color-option w-6 h-6 rounded-full border-2 border-gray-300" data-color="#4ade80" style="background-color: #4ade80;" title="Green"></button>
+                        <button class="fullscreen-color-option w-6 h-6 rounded-full border-2 border-gray-300" data-color="#60a5fa" style="background-color: #60a5fa;" title="Blue"></button>
+                        <button class="fullscreen-color-option w-6 h-6 rounded-full border-2 border-gray-300" data-color="#f87171" style="background-color: #f87171;" title="Red"></button>
+                        <button class="fullscreen-color-option w-6 h-6 rounded-full border-2 border-gray-300" data-color="#a78bfa" style="background-color: #a78bfa;" title="Purple"></button>
+                        <button class="fullscreen-color-option w-6 h-6 rounded-full border-2 border-gray-300" data-color="#fb7185" style="background-color: #fb7185;" title="Pink"></button>
+                        <button class="fullscreen-color-option w-6 h-6 rounded-full border-2 border-gray-300" data-color="#fbbf24" style="background-color: #fbbf24;" title="Orange"></button>
+                        <button class="fullscreen-color-option w-6 h-6 rounded-full border-2 border-gray-300" data-color="#94a3b8" style="background-color: #94a3b8;" title="Gray"></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 <button id="fullscreen-comment-btn" class="toolbar-action-btn">
                   <i data-lucide="message-circle" class="w-4 h-4 mr-2"></i>Comment
                 </button>
+                
+                <!-- Quick Comment -->
+                <div class="relative">
+                  <button id="fullscreen-quick-comment-btn" class="toolbar-action-btn" title="Quick Comment">
+                    <i data-lucide="message-plus" class="w-4 h-4 mr-2"></i>Quick Comment
+                  </button>
+                </div>
+                
                 <a id="fullscreen-download-btn" href="#" class="toolbar-action-btn" target="_blank">
                   <i data-lucide="download" class="w-4 h-4 mr-2"></i>Download
                 </a>
@@ -4233,6 +4642,21 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           </div>
           <div class="fullscreen-content">
             <div class="fullscreen-document" id="fullscreen-document-content"></div>
+            
+            <!-- Quick Comment Modal -->
+            <div id="fullscreen-quick-comment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+              <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <h3 class="text-lg font-semibold mb-4">Add Quick Comment</h3>
+                <div class="mb-4">
+                  <label for="fullscreen-comment-text" class="block text-sm font-medium text-gray-700 mb-2">Comment:</label>
+                  <textarea id="fullscreen-comment-text" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your comment..."></textarea>
+                </div>
+                <div class="flex justify-end space-x-2">
+                  <button id="fullscreen-cancel-comment" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
+                  <button id="fullscreen-save-comment" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save Comment</button>
+                </div>
+              </div>
+            </div>
           </div>
         `;
         document.body.appendChild(fullscreenModal);
@@ -4250,6 +4674,82 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         const fullscreenDownloadBtn = fullscreenModal.querySelector('#fullscreen-download-btn');
         if (downloadBtn && fullscreenDownloadBtn) {
           fullscreenDownloadBtn.href = downloadBtn.href;
+        }
+
+        // Setup fullscreen color picker functionality
+        const fullscreenColorPickerBtn = fullscreenModal.querySelector('#fullscreen-color-picker-btn');
+        const fullscreenColorPicker = fullscreenModal.querySelector('#fullscreen-color-picker');
+        const fullscreenCurrentColor = fullscreenModal.querySelector('#fullscreen-current-color');
+
+        if (fullscreenColorPickerBtn && fullscreenColorPicker) {
+          fullscreenColorPickerBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            fullscreenColorPicker.classList.toggle('hidden');
+          });
+
+          // Close color picker when clicking outside
+          document.addEventListener('click', function(e) {
+            if (!fullscreenColorPicker.contains(e.target) && !fullscreenColorPickerBtn.contains(e.target)) {
+              fullscreenColorPicker.classList.add('hidden');
+            }
+          });
+
+          // Color selection
+          const fullscreenColorOptions = fullscreenModal.querySelectorAll('.fullscreen-color-option');
+          fullscreenColorOptions.forEach(option => {
+            option.addEventListener('click', function() {
+              const color = this.dataset.color;
+              fullscreenCurrentColor.style.backgroundColor = color;
+              fullscreenColorPicker.classList.add('hidden');
+              
+              // Update global highlight color
+              window.currentHighlightColor = color;
+              
+              // Also update main color picker if it exists
+              const mainCurrentColor = document.getElementById('current-color');
+              if (mainCurrentColor) {
+                mainCurrentColor.style.backgroundColor = color;
+              }
+            });
+          });
+        }
+
+        // Setup quick comment functionality
+        const quickCommentBtn = fullscreenModal.querySelector('#fullscreen-quick-comment-btn');
+        const quickCommentModal = fullscreenModal.querySelector('#fullscreen-quick-comment-modal');
+        const cancelCommentBtn = fullscreenModal.querySelector('#fullscreen-cancel-comment');
+        const saveCommentBtn = fullscreenModal.querySelector('#fullscreen-save-comment');
+        const commentTextArea = fullscreenModal.querySelector('#fullscreen-comment-text');
+
+        if (quickCommentBtn && quickCommentModal) {
+          quickCommentBtn.addEventListener('click', function() {
+            quickCommentModal.classList.remove('hidden');
+            commentTextArea.focus();
+          });
+
+          cancelCommentBtn.addEventListener('click', function() {
+            quickCommentModal.classList.add('hidden');
+            commentTextArea.value = '';
+          });
+
+          saveCommentBtn.addEventListener('click', function() {
+            const commentText = commentTextArea.value.trim();
+            if (commentText && window.currentChapterId) {
+              addCommentGeneric(commentText, window.currentChapterId);
+              quickCommentModal.classList.add('hidden');
+              commentTextArea.value = '';
+            } else {
+              showNotification('Please enter a comment and ensure a chapter is selected', 'warning');
+            }
+          });
+
+          // Close modal when clicking outside
+          quickCommentModal.addEventListener('click', function(e) {
+            if (e.target === quickCommentModal) {
+              quickCommentModal.classList.add('hidden');
+              commentTextArea.value = '';
+            }
+          });
         }
       } else {
         fullscreenModal.querySelector('#fullscreen-document-title').textContent = title;
@@ -4308,6 +4808,13 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               
               if (fullscreenCommentBtn && fullscreenDocContent) {
                 enableCommentMode(fullscreenDocContent, fullscreenCommentBtn);
+              }
+              
+              // Load existing highlights and comments for fullscreen view
+              if (window.currentChapterId) {
+                setTimeout(() => {
+                  loadHighlightsInFullscreen(window.currentChapterId);
+                }, 1500); // Wait for document to fully load
               }
               
             } catch (error) {
