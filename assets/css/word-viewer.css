@@ -73,6 +73,13 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+.toolbar-action-btn.active,
+.toolbar-action-btn.bg-red-100 {
+  background: #fed7d7 !important;
+  border-color: #fc8181 !important;
+  color: #c53030 !important;
+}
+
 .word-page {
     flex: 1;
     overflow-y: auto;
@@ -305,6 +312,14 @@
     align-items: center;
     justify-content: center;
     height: 100%;
+    color: #6b7280;
+    min-height: 300px;
+    padding: 40px;
+}
+
+.word-loading p {
+    margin-top: 16px;
+    font-size: 14px;
     color: #6b7280;
 }
 
@@ -881,4 +896,238 @@
         height: 20px;
         font-size: 10px;
     }
+} 
+
+/* Fullscreen Toolbar Enhancements */
+.toolbar-action-btn {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #4a5568;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
+.toolbar-action-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #2d3748;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toolbar-action-btn.active,
+.toolbar-action-btn.bg-red-100 {
+  background: #fed7d7 !important;
+  border-color: #fc8181 !important;
+  color: #c53030 !important;
+}
+
+/* Fullscreen Highlights */
+.fullscreen-highlight {
+  position: relative;
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 1px 2px;
+  transition: all 0.2s ease;
+}
+
+.fullscreen-highlight:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+/* Color Picker Styling */
+#fullscreen-color-picker {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  min-width: 200px;
+}
+
+.fullscreen-color-option {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent !important;
+}
+
+.fullscreen-color-option:hover {
+  transform: scale(1.1);
+  border-color: #4a5568 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Comment indicators in fullscreen */
+.document-fullscreen-modal .comment-indicator {
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #3182ce;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+
+.document-fullscreen-modal .word-paragraph:hover .comment-indicator,
+.document-fullscreen-modal .word-paragraph.commented .comment-indicator {
+  opacity: 1;
+}
+
+.document-fullscreen-modal .comment-indicator:hover {
+  background: #2c5282;
+  transform: translateY(-50%) scale(1.1);
+}
+
+/* Enhanced fullscreen modal backdrop */
+.document-fullscreen-modal {
+  backdrop-filter: blur(2px);
+}
+
+/* Better word paragraph styling in fullscreen */
+.document-fullscreen-modal .word-paragraph {
+  position: relative;
+  padding-right: 30px; /* Space for comment indicators */
+  margin-bottom: 8px;
+  line-height: 1.6;
+  transition: all 0.2s ease;
+}
+
+.document-fullscreen-modal .word-paragraph:hover {
+  background-color: rgba(99, 102, 241, 0.05);
+  border-radius: 4px;
+  padding: 4px 30px 4px 4px;
+  margin: 2px 0;
+}
+
+.document-fullscreen-modal .word-paragraph.commented {
+  border-left: 3px solid #3182ce;
+  padding-left: 8px;
+  background-color: rgba(49, 130, 206, 0.05);
+}
+
+/* Quick comment modal styling */
+#fullscreen-quick-comment-modal .bg-white {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive adjustments for fullscreen toolbar */
+@media (max-width: 768px) {
+  .fullscreen-header {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  
+  .fullscreen-header .flex {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .toolbar-action-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  #fullscreen-color-picker {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+  }
+}
+
+/* Loading state improvements */
+.document-fullscreen-modal .spinner {
+  border-color: #e2e8f0;
+  border-top-color: #6366f1;
+}
+
+/* Enhanced spinner for fullscreen modal */
+.document-fullscreen-modal .word-loading {
+    min-height: 400px;
+    background: white;
+    border-radius: 8px;
+    margin: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.document-fullscreen-modal .spinner {
+    width: 60px;
+    height: 60px;
+    border-width: 6px;
+    border-color: #e2e8f0;
+    border-top-color: #6366f1;
+    margin-bottom: 20px;
+}
+
+.document-fullscreen-modal .word-loading p {
+    font-size: 16px;
+    font-weight: 500;
+    color: #4b5563;
+}
+
+/* Better text selection in fullscreen */
+.document-fullscreen-modal .word-content::selection {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.document-fullscreen-modal .word-content::-moz-selection {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+/* Cursor styles for different modes */
+.document-fullscreen-modal .word-content.highlight-mode {
+  cursor: crosshair !important;
+}
+
+.document-fullscreen-modal .word-content.comment-mode {
+  cursor: help !important;
+}
+
+/* Enhanced button states */
+.toolbar-action-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-action-btn.bg-blue-100 {
+  background: #dbeafe !important;
+  border-color: #60a5fa !important;
+  color: #1e40af !important;
+}
+
+.toolbar-action-btn.bg-green-100 {
+  background: #dcfce7 !important;
+  border-color: #4ade80 !important;
+  color: #15803d !important;
 } 

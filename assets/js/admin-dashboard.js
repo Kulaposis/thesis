@@ -1,322 +1,88 @@
-// Modern Admin Dashboard JavaScript
+// Enhanced Admin Dashboard - User Management
 class AdminDashboard {
     constructor() {
-        this.currentTab = 'overview';
-        this.isLoading = false;
+        this.selectedUsers = new Set();
+        this.currentUsersPage = 1;
+        this.usersPerPage = 10;
+        this.allUsers = [];
+        this.filteredUsers = [];
+        this.currentUserForDelete = null;
         this.init();
     }
 
     init() {
-        this.initializeComponents();
-        this.bindEvents();
-        this.loadInitialData();
-        this.setupAnimations();
-        this.initializeTabs();
-        // System Settings events
-        const settingsTab = document.getElementById('settings-tab');
-        if (settingsTab) {
-            settingsTab.addEventListener('show', () => this.loadSettings());
-        }
-        const settingsForm = document.getElementById('systemSettingsForm');
-        if (settingsForm) {
-            settingsForm.addEventListener('submit', (e) => this.saveSettings(e));
-        }
+        console.log('Initializing Enhanced Admin Dashboard...');
+        
+        // Initialize tabs
+        this.initTabs();
+        
+        // Initialize modal functionality
+        this.initModals();
+        
+        // Initialize user management
+        this.initUserManagement();
+        
+        // Load initial data
+        this.loadDashboardData();
+        
+        // Initialize event listeners
+        this.initEventListeners();
+        
+        console.log('Admin Dashboard initialized successfully');
     }
 
-    initializeComponents() {
-        // Initialize Lucide icons
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
+    initTabs() {
+        const tabButtons = document.querySelectorAll('.nav-item');
+        const tabContents = document.querySelectorAll('.tab-content');
 
-        // Initialize charts
-        this.initCharts();
-
-        // Setup mobile menu
-        this.setupMobileMenu();
-
-        // Initialize tooltips
-        this.initTooltips();
-
-        // Setup real-time updates
-        this.setupRealTimeUpdates();
-    }
-
-    bindEvents() {
-        // Tab navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', (e) => {
+        tabButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
                 e.preventDefault();
-                const tabName = item.getAttribute('data-tab');
-                console.log('Nav item clicked:', tabName); // Debug log
-                this.showTab(tabName);
-            });
-        });
-
-        // Search and filter events
-        this.setupSearchFilters();
-
-        // Modal events
-        this.setupModals();
-
-        // Form submissions
-        this.setupFormHandlers();
-
-        // Keyboard shortcuts
-        this.setupKeyboardShortcuts();
-    }
-
-    showTab(tabName) {
-        console.log('Switching to tab:', tabName); // Debug log
-        
-        // Hide all tab contents
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.add('hidden');
-            tab.classList.remove('fade-in');
-        });
-        
-        // Remove active class from all nav items
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        
-        // Show selected tab with animation
-        const selectedTab = document.getElementById(tabName + '-tab');
-        if (selectedTab) {
-            selectedTab.classList.remove('hidden');
-            setTimeout(() => {
-                selectedTab.classList.add('fade-in');
-            }, 10);
-        } else {
-            console.error('Tab not found:', tabName + '-tab'); // Debug log
-        }
-        
-        // Add active class to selected nav item
-        const activeNavItem = document.querySelector(`[data-tab="${tabName}"]`);
-        if (activeNavItem) {
-            activeNavItem.classList.add('active');
-        } else {
-            console.error('Nav item not found for tab:', tabName); // Debug log
-        }
-
-        this.currentTab = tabName;
-        this.loadTabData(tabName);
-
-        if (tabName === 'settings') {
-            const settingsTab = document.getElementById('settings-tab');
-            if (settingsTab) {
-                const event = new Event('show');
-                settingsTab.dispatchEvent(event);
-            }
-        }
-    }
-
-    initializeTabs() {
-        // Show overview tab by default
-        this.showTab('overview');
-        
-        // Ensure overview nav item is active
-        const overviewNavItem = document.querySelector('[data-tab="overview"]');
-        if (overviewNavItem) {
-            overviewNavItem.classList.add('active');
-        }
-    }
-
-    loadTabData(tabName) {
-        switch(tabName) {
-            case 'users':
-                this.loadUsers();
-                break;
-            case 'analytics':
-                this.loadAnalytics();
-                break;
-            case 'announcements':
-                this.loadAnnouncements();
-                break;
-            case 'logs':
-                this.loadLogs();
-                break;
-            case 'settings':
-                this.loadSettings();
-                break;
-        }
-    }
-
-    async loadAnnouncements() {
-        // This method can be implemented to load announcements dynamically
-        // For now, it's handled by PHP rendering
-        console.log('Loading announcements...');
-    }
-
-    async loadAnalytics() {
-        // Adviser Workload
-        const loading = document.getElementById('adviserWorkloadLoading');
-        const chartCanvas = document.getElementById('adviserWorkloadChart');
-        if (loading) loading.classList.remove('hidden');
-        if (chartCanvas) chartCanvas.style.display = 'none';
-        try {
-            const response = await fetch('admin_dashboard.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=get_adviser_workload'
-            });
-            const data = await response.json();
-            if (Array.isArray(data) && data.length > 0) {
-                this.renderAdviserWorkloadChart(data);
-                if (chartCanvas) chartCanvas.style.display = '';
-            } else {
-                if (chartCanvas) {
-                    chartCanvas.style.display = 'none';
-                    loading.innerHTML = '<p class="text-gray-500">No adviser workload data available.</p>';
-                }
-            }
-        } catch (error) {
-            if (loading) loading.innerHTML = '<p class="text-red-500">Failed to load adviser workload.</p>';
-        } finally {
-            if (loading) loading.classList.add('hidden');
-        }
-    }
-
-    renderAdviserWorkloadChart(data) {
-        const ctx = document.getElementById('adviserWorkloadChart').getContext('2d');
-        if (this._adviserWorkloadChart) {
-            this._adviserWorkloadChart.destroy();
-        }
-        this._adviserWorkloadChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: data.map(d => d.adviser),
-                datasets: [{
-                    label: 'Workload',
-                    data: data.map(d => d.workload),
-                    backgroundColor: '#2563eb',
-                    borderRadius: 8,
-                    borderSkipped: false,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(0,0,0,0.06)' },
-                        ticks: { stepSize: 1 }
-                    },
-                    x: {
-                        grid: { display: false }
+                const targetTab = button.getAttribute('data-tab');
+                
+                // Remove active class from all buttons and contents
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.add('hidden'));
+                
+                // Add active class to clicked button and show corresponding content
+                button.classList.add('active');
+                const targetContent = document.getElementById(targetTab + '-tab');
+                if (targetContent) {
+                    targetContent.classList.remove('hidden');
+                    
+                    // Load data for specific tabs
+                    if (targetTab === 'users') {
+                        this.loadUsers();
+                    } else if (targetTab === 'logs') {
+                        this.loadLoginLogs();
+                    } else if (targetTab === 'analytics') {
+                        this.loadAnalytics();
+                    } else if (targetTab === 'announcements') {
+                        this.loadAnnouncements();
                     }
                 }
-            }
+            });
         });
     }
 
-    async loadLogs() {
-        // This method can be implemented to load logs dynamically
-        // For now, it's handled by PHP rendering
-        console.log('Loading logs...');
-    }
-
-    async loadSettings() {
-        const loading = document.getElementById('settingsLoading');
-        const form = document.getElementById('systemSettingsForm');
-        if (loading) loading.classList.remove('hidden');
-        if (form) form.classList.add('hidden');
-        try {
-            const response = await fetch('admin_dashboard.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=get_settings'
-            });
-            const settings = await response.json();
-            document.getElementById('systemName').value = settings.system_name || '';
-            document.getElementById('contactEmail').value = settings.contact_email || '';
-            document.getElementById('theme').value = settings.theme || 'light';
-        } catch (error) {
-            this.showSettingsNotification('Failed to load settings.', 'error');
-        } finally {
-            if (loading) loading.classList.add('hidden');
-            if (form) form.classList.remove('hidden');
-        }
-    }
-
-    async saveSettings(e) {
-        e.preventDefault();
-        const form = document.getElementById('systemSettingsForm');
-        const loading = document.getElementById('settingsLoading');
-        if (loading) loading.classList.remove('hidden');
-        if (form) form.classList.add('hidden');
-        const formData = new FormData(form);
-        formData.append('action', 'update_settings');
-        try {
-            const response = await fetch('admin_dashboard.php', {
-                method: 'POST',
-                body: formData
-            });
-            const result = await response.json();
-            if (result.success) {
-                this.showSettingsNotification('Settings saved successfully!', 'success');
-            } else {
-                this.showSettingsNotification('Failed to save settings.', 'error');
-            }
-        } catch (error) {
-            this.showSettingsNotification('Failed to save settings.', 'error');
-        } finally {
-            if (loading) loading.classList.add('hidden');
-            if (form) form.classList.remove('hidden');
-        }
-    }
-
-    showSettingsNotification(message, type) {
-        const notif = document.getElementById('settingsNotification');
-        if (!notif) return;
-        notif.innerHTML = `<div class='rounded px-4 py-2 ${type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}'>${message}</div>`;
-        setTimeout(() => { notif.innerHTML = ''; }, 4000);
-    }
-
-    setupSearchFilters() {
-        const searchInput = document.getElementById('searchFilter');
-        const roleFilter = document.getElementById('roleFilter');
-        const departmentFilter = document.getElementById('departmentFilter');
-
-        if (searchInput) {
-            searchInput.addEventListener('input', this.debounce(() => {
-                this.loadUsers();
-            }, 300));
-        }
-
-        if (roleFilter) {
-            roleFilter.addEventListener('change', () => {
-                this.loadUsers();
+    initModals() {
+        // Role change handler for create user modal
+        const createUserRole = document.getElementById('createUserRole');
+        if (createUserRole) {
+            createUserRole.addEventListener('change', (e) => {
+                this.toggleRoleFields(e.target.value, 'create');
             });
         }
 
-        if (departmentFilter) {
-            departmentFilter.addEventListener('change', () => {
-                this.loadUsers();
+        // Role change handler for edit user modal
+        const editUserRole = document.getElementById('editUserRole');
+        if (editUserRole) {
+            editUserRole.addEventListener('change', (e) => {
+                this.toggleRoleFields(e.target.value, 'edit');
             });
         }
-    }
 
-    setupModals() {
-        // Close modals when clicking outside
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) {
-                this.closeModal(e.target);
-            }
-        });
-
-        // Close modals with Escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.closeAllModals();
-            }
-        });
-    }
-
-    setupFormHandlers() {
-        // Create user form
+        // Form submissions
         const createUserForm = document.getElementById('createUserForm');
         if (createUserForm) {
             createUserForm.addEventListener('submit', (e) => {
@@ -325,489 +91,41 @@ class AdminDashboard {
             });
         }
 
-        // Create announcement form
-        const createAnnouncementForm = document.getElementById('createAnnouncementForm');
-        if (createAnnouncementForm) {
-            createAnnouncementForm.addEventListener('submit', (e) => {
+        const editUserForm = document.getElementById('editUserForm');
+        if (editUserForm) {
+            editUserForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                this.createAnnouncement();
+                this.updateUser();
             });
         }
     }
 
-    setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            // Ctrl/Cmd + K for search
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-                e.preventDefault();
-                const searchInput = document.getElementById('searchFilter');
-                if (searchInput) {
-                    searchInput.focus();
-                }
-            }
-
-            // Ctrl/Cmd + N for new user
-            if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-                e.preventDefault();
-                this.showCreateUserModal();
-            }
-        });
-    }
-
-    setupMobileMenu() {
-        const mobileToggle = document.querySelector('.mobile-menu-toggle');
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.querySelector('.sidebar-overlay');
-
-        if (mobileToggle) {
-            mobileToggle.addEventListener('click', () => {
-                sidebar.classList.toggle('open');
-                if (overlay) {
-                    overlay.classList.toggle('hidden');
-                }
+    initUserManagement() {
+        // Select all checkboxes
+        const selectAllUsers = document.getElementById('selectAllUsers');
+        const selectAllUsersHeader = document.getElementById('selectAllUsersHeader');
+        
+        if (selectAllUsers) {
+            selectAllUsers.addEventListener('change', (e) => {
+                this.toggleAllUsers(e.target.checked);
             });
         }
-
-        if (overlay) {
-            overlay.addEventListener('click', () => {
-                sidebar.classList.remove('open');
-                overlay.classList.add('hidden');
+        
+        if (selectAllUsersHeader) {
+            selectAllUsersHeader.addEventListener('change', (e) => {
+                this.toggleAllUsers(e.target.checked);
             });
         }
     }
 
-    initTooltips() {
-        // Simple tooltip implementation
-        document.querySelectorAll('[data-tooltip]').forEach(element => {
-            element.addEventListener('mouseenter', (e) => {
-                this.showTooltip(e.target);
-            });
-
-            element.addEventListener('mouseleave', (e) => {
-                this.hideTooltip();
-            });
-        });
-    }
-
-    showTooltip(element) {
-        const tooltipText = element.getAttribute('data-tooltip');
-        const tooltip = document.createElement('div');
-        tooltip.className = 'tooltip';
-        tooltip.textContent = tooltipText;
-        document.body.appendChild(tooltip);
-
-        const rect = element.getBoundingClientRect();
-        tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
-        tooltip.style.top = rect.top - tooltip.offsetHeight - 10 + 'px';
-    }
-
-    hideTooltip() {
-        const tooltip = document.querySelector('.tooltip');
-        if (tooltip) {
-            tooltip.remove();
+    initEventListeners() {
+        // Search and filter inputs
+        const userSearch = document.getElementById('userSearch');
+        if (userSearch) {
+            userSearch.addEventListener('input', this.debounce(() => {
+                this.filterUsers();
+            }, 300));
         }
-    }
-
-    setupRealTimeUpdates() {
-        // Update system health every 30 seconds
-        setInterval(() => {
-            this.updateSystemHealth();
-        }, 30000);
-
-        // Update notifications every minute
-        setInterval(() => {
-            this.updateNotifications();
-        }, 60000);
-    }
-
-    async loadUsers() {
-        const usersTable = document.getElementById('usersTable');
-        if (!usersTable) return;
-        usersTable.innerHTML = `<div class='text-center py-12 loading-indicator'><i data-lucide="loader-2" class="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin"></i><p class='text-gray-500'>Loading users...</p></div>`;
-
-        const role = document.getElementById('roleFilter')?.value || '';
-        const search = document.getElementById('searchFilter')?.value || '';
-        const department = document.getElementById('departmentFilter')?.value || '';
-
-        const formData = new FormData();
-        formData.append('action', 'get_users');
-        formData.append('role', role);
-        formData.append('search', search);
-        formData.append('department', department);
-
-        try {
-            const response = await fetch('admin_dashboard.php', {
-                method: 'POST',
-                body: formData
-            });
-            const users = await response.json();
-            this.displayUsers(users);
-        } catch (error) {
-            usersTable.innerHTML = `<div class='text-center py-12'><p class='text-red-500'>Failed to load users.</p></div>`;
-        }
-    }
-
-    displayUsers(users) {
-        const usersTable = document.getElementById('usersTable');
-        if (!usersTable) return;
-        if (!users || users.length === 0) {
-            usersTable.innerHTML = `<div class='text-center py-12'><p class='text-gray-500'>No users found.</p></div>`;
-            return;
-        }
-        let html = `<table class='modern-table w-full'><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Actions</th></tr></thead><tbody>`;
-        for (const user of users) {
-            html += `<tr><td>${user.full_name}</td><td>${user.email}</td><td>${user.role}</td><td>${user.department || ''}</td><td>
-                <button class='btn btn-sm btn-secondary' title='Reset Password' onclick='adminDashboard.resetPassword(${user.user_id})'><i data-lucide="refresh-ccw" class="w-4 h-4"></i></button>
-                <button class='btn btn-sm btn-danger' title='Delete User' onclick='adminDashboard.deleteUser(${user.user_id})'><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            </td></tr>`;
-        }
-        html += `</tbody></table>`;
-        usersTable.innerHTML = html;
-        lucide.createIcons();
-    }
-
-    async createUser() {
-        const form = document.getElementById('createUserForm');
-        const formData = new FormData(form);
-
-        try {
-            const response = await fetch('admin_dashboard.php', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                this.showNotification('User created successfully!', 'success');
-                this.closeModal(document.querySelector('.modal-overlay'));
-                this.loadUsers();
-                form.reset();
-            } else {
-                this.showNotification('Error creating user', 'error');
-            }
-        } catch (error) {
-            this.showNotification('Error creating user', 'error');
-        }
-    }
-
-    async createAnnouncement() {
-        const form = document.getElementById('createAnnouncementForm');
-        const formData = new FormData(form);
-
-        try {
-            const response = await fetch('admin_dashboard.php', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                this.showNotification('Announcement created successfully!', 'success');
-                this.closeModal(document.querySelector('.modal-overlay'));
-                this.loadAnnouncements();
-                form.reset();
-            } else {
-                this.showNotification('Error creating announcement', 'error');
-            }
-        } catch (error) {
-            this.showNotification('Error creating announcement', 'error');
-        }
-    }
-
-    async deleteUser(userId) {
-        if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-            return;
-        }
-
-        try {
-            const response = await fetch('admin_dashboard.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `action=delete_user&user_id=${userId}`
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                this.showNotification('User deleted successfully', 'success');
-                this.loadUsers();
-            } else {
-                this.showNotification('Error deleting user', 'error');
-            }
-        } catch (error) {
-            this.showNotification('Error deleting user', 'error');
-        }
-    }
-
-    async resetPassword(userId) {
-        if (!confirm('Are you sure you want to reset this user\'s password?')) {
-            return;
-        }
-
-        try {
-            const response = await fetch('admin_dashboard.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `action=reset_password&user_id=${userId}`
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                this.showNotification(`Password reset successful! New password: ${result.password}`, 'success');
-            } else {
-                this.showNotification('Error resetting password', 'error');
-            }
-        } catch (error) {
-            this.showNotification('Error resetting password', 'error');
-        }
-    }
-
-    initCharts() {
-        // Department Performance Chart
-        const deptCtx = document.getElementById('departmentChart');
-        if (deptCtx) {
-            const deptData = window.departmentData || [];
-            const studentCounts = deptData.map(d => d.student_count);
-            const maxCount = Math.max(...studentCounts, 0);
-            // Next multiple of 5 above maxCount, at least 5
-            const suggestedMax = Math.max(5, Math.ceil((maxCount + 1) / 5) * 5);
-            new Chart(deptCtx.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: deptData.map(d => d.department),
-                    datasets: [{
-                        label: 'Students',
-                        data: studentCounts,
-                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
-                        borderColor: 'rgba(102, 126, 234, 1)',
-                        borderWidth: 2,
-                        borderRadius: 8,
-                        borderSkipped: false,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            suggestedMax: suggestedMax,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Activity Chart
-        const activityCtx = document.getElementById('activityChart');
-        if (activityCtx) {
-            const activityData = window.activityData || [];
-            new Chart(activityCtx.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: activityData.map(d => d.month),
-                    datasets: [{
-                        label: 'Activity Count',
-                        data: activityData.map(d => d.activity_count),
-                        borderColor: 'rgba(79, 172, 254, 1)',
-                        backgroundColor: 'rgba(79, 172, 254, 0.1)',
-                        tension: 0.4,
-                        fill: true,
-                        pointBackgroundColor: 'rgba(79, 172, 254, 1)',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2,
-                        pointRadius: 6,
-                        pointHoverRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
-                    }
-                }
-            });
-        }
-    }
-
-    showCreateUserModal() {
-        const modal = `
-            <div class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="modal-content bg-white rounded-2xl p-6 w-full max-w-md mx-4">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-xl font-semibold">Create New User</h3>
-                        <button onclick="adminDashboard.closeModal(this.closest('.modal-overlay'))" class="text-gray-400 hover:text-gray-600">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                    <form id="createUserForm">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                                <input type="text" name="full_name" required class="search-input">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                                <input type="email" name="email" required class="search-input">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                                <select name="role" required class="search-input">
-                                    <option value="">Select Role</option>
-                                    <option value="student">Student</option>
-                                    <option value="adviser">Adviser</option>
-                                    <option value="admin">Admin</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                                <select name="department" class="search-input">
-                                    <option value="">Select Department</option>
-                                    <option value="Computer Science">Computer Science</option>
-                                    <option value="Information Technology">Information Technology</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="flex justify-end space-x-3 mt-6">
-                            <button type="button" onclick="adminDashboard.closeModal(this.closest('.modal-overlay'))" class="btn btn-secondary">
-                                Cancel
-                            </button>
-                            <button type="submit" class="btn btn-primary">
-                                Create User
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', modal);
-        lucide.createIcons();
-    }
-
-    showCreateAnnouncementModal() {
-        const modal = `
-            <div class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="modal-content bg-white rounded-2xl p-6 w-full max-w-md mx-4">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-xl font-semibold">Create New Announcement</h3>
-                        <button onclick="adminDashboard.closeModal(this.closest('.modal-overlay'))" class="text-gray-400 hover:text-gray-600">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                    <form id="createAnnouncementForm">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                                <input type="text" name="title" required class="search-input">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Content</label>
-                                <textarea name="content" required rows="4" class="search-input"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                                <select name="priority" class="search-input">
-                                    <option value="normal">Normal</option>
-                                    <option value="high">High</option>
-                                    <option value="urgent">Urgent</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="flex justify-end space-x-3 mt-6">
-                            <button type="button" onclick="adminDashboard.closeModal(this.closest('.modal-overlay'))" class="btn btn-secondary">
-                                Cancel
-                            </button>
-                            <button type="submit" class="btn btn-primary">
-                                Create Announcement
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', modal);
-        lucide.createIcons();
-    }
-
-    closeModal(modal) {
-        if (modal) {
-            modal.remove();
-        }
-    }
-
-    closeAllModals() {
-        document.querySelectorAll('.modal-overlay').forEach(modal => {
-            modal.remove();
-        });
-    }
-
-    setLoading(loading) {
-        this.isLoading = loading;
-        const loadingElements = document.querySelectorAll('.loading-indicator');
-        loadingElements.forEach(el => {
-            el.classList.toggle('loading', loading);
-        });
-    }
-
-    showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type} fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300`;
-        notification.textContent = message;
-
-        const colors = {
-            success: 'bg-green-500 text-white',
-            error: 'bg-red-500 text-white',
-            warning: 'bg-yellow-500 text-white',
-            info: 'bg-blue-500 text-white'
-        };
-
-        notification.classList.add(colors[type]);
-        document.body.appendChild(notification);
-
-        // Animate in
-        setTimeout(() => {
-            notification.classList.remove('translate-x-full');
-        }, 100);
-
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-            notification.classList.add('translate-x-full');
-            setTimeout(() => {
-                notification.remove();
-            }, 300);
-        }, 5000);
     }
 
     debounce(func, wait) {
@@ -822,84 +140,921 @@ class AdminDashboard {
         };
     }
 
-    setupAnimations() {
-        // Intersection Observer for fade-in animations
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('fade-in');
+    toggleRoleFields(role, mode) {
+        const prefix = mode === 'create' ? '' : 'edit';
+        const studentFields = document.getElementById(`${prefix}StudentFields`);
+        const adviserFields = document.getElementById(`${prefix}AdviserFields`);
+
+        // Hide all role-specific fields
+        if (studentFields) studentFields.style.display = 'none';
+        if (adviserFields) adviserFields.style.display = 'none';
+
+        // Show relevant fields based on role
+        if (role === 'student' && studentFields) {
+            studentFields.style.display = 'grid';
+        } else if (role === 'adviser' && adviserFields) {
+            adviserFields.style.display = 'grid';
+        }
+    }
+
+    async loadDashboardData() {
+        try {
+            console.log('Loading dashboard data...');
+            
+            // Load users for stats
+            await this.loadUsers();
+            
+            // Update user stats
+            this.updateUserStats();
+            
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            this.showNotification('Error loading dashboard data', 'error');
+        }
+    }
+
+    async loadUsers() {
+        const usersLoading = document.getElementById('usersLoading');
+        const usersTableBody = document.getElementById('usersTableBody');
+        
+        try {
+            console.log('Loading users...');
+            
+            if (usersLoading) usersLoading.classList.remove('hidden');
+            
+            const response = await fetch('api/admin_users.php', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
                 }
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('Users loaded:', data);
+
+            if (data.success) {
+                this.allUsers = data.users || [];
+                this.filteredUsers = [...this.allUsers];
+                this.renderUsers();
+                this.updateUserStats();
+            } else {
+                throw new Error(data.message || 'Failed to load users');
+            }
+
+        } catch (error) {
+            console.error('Error loading users:', error);
+            this.showNotification('Error loading users: ' + error.message, 'error');
+            
+            if (usersTableBody) {
+                usersTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-8">
+                            <i data-lucide="alert-circle" class="w-12 h-12 text-red-400 mx-auto mb-4"></i>
+                            <p class="text-red-500">Error loading users</p>
+                            <button onclick="adminDashboard.loadUsers()" class="btn btn-primary btn-sm mt-4">
+                                Try Again
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+        } finally {
+            if (usersLoading) usersLoading.classList.add('hidden');
+        }
+    }
+
+    renderUsers() {
+        const usersTableBody = document.getElementById('usersTableBody');
+        const userCount = document.getElementById('userCount');
+        
+        if (!usersTableBody) return;
+
+        if (this.filteredUsers.length === 0) {
+            usersTableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-8">
+                        <i data-lucide="users" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+                        <p class="text-gray-500">No users found</p>
+                        <button onclick="adminDashboard.showCreateUserModal()" class="btn btn-primary btn-sm mt-4">
+                            Add First User
+                        </button>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const startIndex = (this.currentUsersPage - 1) * this.usersPerPage;
+        const endIndex = startIndex + this.usersPerPage;
+        const usersToShow = this.filteredUsers.slice(startIndex, endIndex);
+
+        usersTableBody.innerHTML = usersToShow.map(user => `
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td>
+                    <input type="checkbox" 
+                           class="user-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                           value="${user.id}" 
+                           onchange="adminDashboard.toggleUserSelection(${user.id}, this.checked)">
+                </td>
+                <td>
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold mr-3">
+                            ${(user.full_name || user.name || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-900">${this.escapeHtml(user.full_name || user.name || 'Unknown')}</p>
+                            <p class="text-sm text-gray-500">${this.escapeHtml(user.email || '')}</p>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge badge-${this.getRoleBadgeClass(user.role)}">
+                        ${this.formatRole(user.role)}
+                    </span>
+                </td>
+                <td>
+                    <div>
+                        <p class="font-medium text-gray-900">${this.escapeHtml(user.department || '-')}</p>
+                        <p class="text-sm text-gray-500">${this.escapeHtml(user.program || '')}</p>
+                    </div>
+                </td>
+                <td>
+                    <span class="font-mono text-sm">${this.escapeHtml(user.student_id || user.faculty_id || '-')}</span>
+                </td>
+                <td>
+                    <span class="badge badge-${user.is_active ? 'success' : 'danger'}">
+                        ${user.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td>
+                    <span class="text-sm text-gray-600">
+                        ${user.last_login ? this.formatDate(user.last_login) : 'Never'}
+                    </span>
+                </td>
+                <td>
+                    <div class="flex space-x-1">
+                        <button onclick="adminDashboard.editUser(${user.id})" 
+                                class="btn btn-warning btn-sm" 
+                                title="Edit User">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="adminDashboard.resetUserPassword(${user.id})" 
+                                class="btn btn-info btn-sm" 
+                                title="Reset Password">
+                            <i data-lucide="key" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="adminDashboard.deleteUser(${user.id})" 
+                                class="btn btn-danger btn-sm" 
+                                title="Delete User">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        // Update count
+        if (userCount) {
+            userCount.textContent = this.filteredUsers.length;
+        }
+
+        // Re-initialize Lucide icons
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    }
+
+    updateUserStats() {
+        const students = this.allUsers.filter(u => u.role === 'student');
+        const advisers = this.allUsers.filter(u => u.role === 'adviser');
+        const admins = this.allUsers.filter(u => u.role === 'admin' || u.role === 'super_admin');
+        const activeToday = this.allUsers.filter(u => {
+            if (!u.last_login) return false;
+            const today = new Date().toDateString();
+            const loginDate = new Date(u.last_login).toDateString();
+            return loginDate === today;
         });
 
-        document.querySelectorAll('.glass-card, .stat-card').forEach(el => {
-            observer.observe(el);
+        this.updateStat('totalStudents', students.length);
+        this.updateStat('totalAdvisers', advisers.length);
+        this.updateStat('totalAdmins', admins.length);
+        this.updateStat('activeToday', activeToday.length);
+    }
+
+    updateStat(elementId, value) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.textContent = value;
+        }
+    }
+
+    getRoleBadgeClass(role) {
+        const classes = {
+            'student': 'primary',
+            'adviser': 'success',
+            'admin': 'warning',
+            'super_admin': 'danger'
+        };
+        return classes[role] || 'secondary';
+    }
+
+    formatRole(role) {
+        const roles = {
+            'student': 'Student',
+            'adviser': 'Adviser',
+            'admin': 'Admin',
+            'super_admin': 'Super Admin'
+        };
+        return roles[role] || role;
+    }
+
+    formatDate(dateString) {
+        if (!dateString) return 'Never';
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    filterUsers() {
+        const searchTerm = document.getElementById('userSearch')?.value.toLowerCase() || '';
+        const roleFilter = document.getElementById('roleFilter')?.value || '';
+        const departmentFilter = document.getElementById('departmentFilter')?.value || '';
+        const programFilter = document.getElementById('programFilter')?.value || '';
+
+        this.filteredUsers = this.allUsers.filter(user => {
+            const matchesSearch = !searchTerm || 
+                (user.full_name || user.name || '').toLowerCase().includes(searchTerm) ||
+                (user.email || '').toLowerCase().includes(searchTerm) ||
+                (user.student_id || '').toLowerCase().includes(searchTerm) ||
+                (user.faculty_id || '').toLowerCase().includes(searchTerm);
+
+            const matchesRole = !roleFilter || user.role === roleFilter;
+            const matchesDepartment = !departmentFilter || user.department === departmentFilter;
+            const matchesProgram = !programFilter || user.program === programFilter;
+
+            return matchesSearch && matchesRole && matchesDepartment && matchesProgram;
+        });
+
+        this.currentUsersPage = 1;
+        this.renderUsers();
+    }
+
+    clearUserFilters() {
+        // Clear all filter inputs
+        const inputs = ['userSearch', 'roleFilter', 'departmentFilter', 'programFilter'];
+        inputs.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.value = '';
+        });
+
+        // Reset filtered users and re-render
+        this.filteredUsers = [...this.allUsers];
+        this.currentUsersPage = 1;
+        this.renderUsers();
+    }
+
+    toggleUserSelection(userId, checked) {
+        if (checked) {
+            this.selectedUsers.add(userId);
+        } else {
+            this.selectedUsers.delete(userId);
+        }
+
+        this.updateBulkActionsPanel();
+        this.updateSelectAllCheckboxes();
+    }
+
+    toggleAllUsers(checked) {
+        const checkboxes = document.querySelectorAll('.user-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = checked;
+            const userId = parseInt(checkbox.value);
+            if (checked) {
+                this.selectedUsers.add(userId);
+            } else {
+                this.selectedUsers.delete(userId);
+            }
+        });
+
+        this.updateBulkActionsPanel();
+    }
+
+    updateBulkActionsPanel() {
+        const panel = document.getElementById('bulkActionsPanel');
+        const selectedCount = document.getElementById('selectedCount');
+
+        if (panel && selectedCount) {
+            if (this.selectedUsers.size > 0) {
+                panel.style.display = 'block';
+                selectedCount.textContent = this.selectedUsers.size;
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+    }
+
+    updateSelectAllCheckboxes() {
+        const selectAllUsers = document.getElementById('selectAllUsers');
+        const selectAllUsersHeader = document.getElementById('selectAllUsersHeader');
+        const checkboxes = document.querySelectorAll('.user-checkbox');
+        
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+
+        [selectAllUsers, selectAllUsersHeader].forEach(checkbox => {
+            if (checkbox) {
+                checkbox.checked = allChecked;
+                checkbox.indeterminate = someChecked && !allChecked;
+            }
         });
     }
 
-    loadInitialData() {
-        // Load initial data based on current tab
-        this.loadTabData(this.currentTab);
+    clearSelection() {
+        this.selectedUsers.clear();
+        const checkboxes = document.querySelectorAll('.user-checkbox');
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+        this.updateBulkActionsPanel();
+        this.updateSelectAllCheckboxes();
     }
 
-    async updateSystemHealth() {
-        // Update system health indicator
+    // Modal Management
+    showCreateUserModal() {
+        const modal = document.getElementById('createUserModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Reset form
+            const form = document.getElementById('createUserForm');
+            if (form) {
+                form.reset();
+                this.toggleRoleFields('', 'create');
+            }
+        }
+    }
+
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    async createUser() {
         try {
+            const form = document.getElementById('createUserForm');
+            const formData = new FormData(form);
+            
+            // Convert to JSON
+            const userData = {};
+            formData.forEach((value, key) => {
+                userData[key] = value;
+            });
+
+            console.log('Creating user:', userData);
+
+            const response = await fetch('api/admin_users.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'create',
+                    ...userData
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification('User created successfully!', 'success');
+                this.closeModal('createUserModal');
+                
+                // Show password if generated
+                if (data.password) {
+                    this.showPasswordModal(userData.full_name, userData.email, data.password);
+                }
+                
+                // Reload users
+                await this.loadUsers();
+            } else {
+                throw new Error(data.message || 'Failed to create user');
+            }
+
+        } catch (error) {
+            console.error('Error creating user:', error);
+            this.showNotification('Error creating user: ' + error.message, 'error');
+        }
+    }
+
+    async editUser(userId) {
+        try {
+            // Find user data
+            const user = this.allUsers.find(u => u.id === userId);
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            // Populate edit form
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editFullName').value = user.full_name || user.name || '';
+            document.getElementById('editEmail').value = user.email || '';
+            document.getElementById('editUserRole').value = user.role || '';
+
+            // Populate role-specific fields
+            if (user.role === 'student') {
+                document.getElementById('editStudentId').value = user.student_id || '';
+                document.getElementById('editProgram').value = user.program || '';
+                document.getElementById('editDepartment').value = user.department || '';
+            } else if (user.role === 'adviser') {
+                document.getElementById('editFacultyId').value = user.faculty_id || '';
+                document.getElementById('editAdviserDepartment').value = user.department || '';
+            }
+
+            // Show appropriate fields
+            this.toggleRoleFields(user.role, 'edit');
+
+            // Show modal
+            const modal = document.getElementById('editUserModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            }
+
+        } catch (error) {
+            console.error('Error loading user for edit:', error);
+            this.showNotification('Error loading user data', 'error');
+        }
+    }
+
+    async updateUser() {
+        try {
+            const form = document.getElementById('editUserForm');
+            const formData = new FormData(form);
+            
+            // Convert to JSON
+            const userData = {};
+            formData.forEach((value, key) => {
+                userData[key] = value;
+            });
+
+            console.log('Updating user:', userData);
+
+            const response = await fetch('api/admin_users.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'update',
+                    ...userData
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification('User updated successfully!', 'success');
+                this.closeModal('editUserModal');
+                
+                // Reload users
+                await this.loadUsers();
+            } else {
+                throw new Error(data.message || 'Failed to update user');
+            }
+
+        } catch (error) {
+            console.error('Error updating user:', error);
+            this.showNotification('Error updating user: ' + error.message, 'error');
+        }
+    }
+
+    deleteUser(userId) {
+        // Find user data
+        const user = this.allUsers.find(u => u.id === userId);
+        if (!user) {
+            this.showNotification('User not found', 'error');
+            return;
+        }
+
+        // Set current user for deletion
+        this.currentUserForDelete = userId;
+
+        // Populate modal
+        document.getElementById('deleteUserName').textContent = user.full_name || user.name || 'Unknown';
+        document.getElementById('deleteUserEmail').textContent = user.email || '';
+
+        // Show modal
+        const modal = document.getElementById('deleteUserModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    async confirmDeleteUser() {
+        if (!this.currentUserForDelete) return;
+
+        try {
+            console.log('Deleting user:', this.currentUserForDelete);
+
+            const response = await fetch('api/admin_users.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'delete',
+                    user_id: this.currentUserForDelete
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification('User deleted successfully!', 'success');
+                this.closeModal('deleteUserModal');
+                this.currentUserForDelete = null;
+                
+                // Reload users
+                await this.loadUsers();
+            } else {
+                throw new Error(data.message || 'Failed to delete user');
+            }
+
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            this.showNotification('Error deleting user: ' + error.message, 'error');
+        }
+    }
+
+    async resetUserPassword(userId) {
+        try {
+            const user = this.allUsers.find(u => u.id === userId);
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            const confirmed = confirm(`Are you sure you want to reset the password for ${user.full_name || user.name || 'this user'}?`);
+            if (!confirmed) return;
+
+            console.log('Resetting password for user:', userId);
+
+            const response = await fetch('api/admin_users.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'reset_password',
+                    user_id: userId
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification('Password reset successfully!', 'success');
+                
+                // Show new password
+                if (data.password) {
+                    this.showPasswordModal(user.full_name || user.name, user.email, data.password);
+                }
+            } else {
+                throw new Error(data.message || 'Failed to reset password');
+            }
+
+        } catch (error) {
+            console.error('Error resetting password:', error);
+            this.showNotification('Error resetting password: ' + error.message, 'error');
+        }
+    }
+
+    async bulkResetPasswords() {
+        if (this.selectedUsers.size === 0) {
+            this.showNotification('Please select users first', 'warning');
+            return;
+        }
+
+        const confirmed = confirm(`Are you sure you want to reset passwords for ${this.selectedUsers.size} selected user(s)?`);
+        if (!confirmed) return;
+
+        try {
+            console.log('Bulk resetting passwords for users:', Array.from(this.selectedUsers));
+
+            const response = await fetch('api/admin_users.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'bulk_reset_passwords',
+                    user_ids: Array.from(this.selectedUsers)
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification(`Passwords reset for ${data.count} user(s)!`, 'success');
+                this.clearSelection();
+                
+                // Show passwords if provided
+                if (data.passwords && data.passwords.length > 0) {
+                    this.showBulkPasswordsModal(data.passwords);
+                }
+            } else {
+                throw new Error(data.message || 'Failed to reset passwords');
+            }
+
+        } catch (error) {
+            console.error('Error bulk resetting passwords:', error);
+            this.showNotification('Error resetting passwords: ' + error.message, 'error');
+        }
+    }
+
+    async bulkDeleteUsers() {
+        if (this.selectedUsers.size === 0) {
+            this.showNotification('Please select users first', 'warning');
+            return;
+        }
+
+        const confirmed = confirm(`Are you sure you want to DELETE ${this.selectedUsers.size} selected user(s)? This action cannot be undone!`);
+        if (!confirmed) return;
+
+        try {
+            console.log('Bulk deleting users:', Array.from(this.selectedUsers));
+
+            const response = await fetch('api/admin_users.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'bulk_delete',
+                    user_ids: Array.from(this.selectedUsers)
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification(`${data.count} user(s) deleted successfully!`, 'success');
+                this.clearSelection();
+                
+                // Reload users
+                await this.loadUsers();
+            } else {
+                throw new Error(data.message || 'Failed to delete users');
+            }
+
+        } catch (error) {
+            console.error('Error bulk deleting users:', error);
+            this.showNotification('Error deleting users: ' + error.message, 'error');
+        }
+    }
+
+    showPasswordModal(userName, userEmail, password) {
+        document.getElementById('passwordUserName').textContent = userName || 'Unknown';
+        document.getElementById('passwordUserEmail').textContent = userEmail || '';
+        document.getElementById('generatedPassword').textContent = password;
+
+        const modal = document.getElementById('passwordModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    copyPassword() {
+        const passwordElement = document.getElementById('generatedPassword');
+        if (passwordElement) {
+            navigator.clipboard.writeText(passwordElement.textContent).then(() => {
+                this.showNotification('Password copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Error copying password:', err);
+                this.showNotification('Failed to copy password', 'error');
+            });
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        console.log(`${type.toUpperCase()}: ${message}`);
+        
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ${this.getNotificationClasses(type)}`;
+        notification.innerHTML = `
+            <div class="flex items-center">
+                <i data-lucide="${this.getNotificationIcon(type)}" class="w-5 h-5 mr-3"></i>
+                <span>${this.escapeHtml(message)}</span>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Re-initialize Lucide icons
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    getNotificationClasses(type) {
+        const classes = {
+            'success': 'bg-green-500 text-white',
+            'error': 'bg-red-500 text-white',
+            'warning': 'bg-yellow-500 text-white',
+            'info': 'bg-blue-500 text-white'
+        };
+        return classes[type] || classes.info;
+    }
+
+    getNotificationIcon(type) {
+        const icons = {
+            'success': 'check-circle',
+            'error': 'alert-circle',
+            'warning': 'alert-triangle',
+            'info': 'info'
+        };
+        return icons[type] || icons.info;
+    }
+
+    // Login Logs functionality
+    async loadLoginLogs() {
+        const logsLoading = document.getElementById('logsLoading');
+        const logsTableBody = document.getElementById('logsTableBody');
+        
+        try {
+            console.log('Loading login logs...');
+            
+            if (logsLoading) logsLoading.classList.remove('hidden');
+            
             const response = await fetch('admin_dashboard.php', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: 'action=get_system_health'
+                body: 'action=get_login_logs&limit=50'
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
-            this.updateHealthIndicator(data.health_percentage);
+            console.log('Login logs loaded:', data);
+
+            if (data.success) {
+                this.renderLoginLogs(data.logs || []);
+            } else {
+                throw new Error(data.error || 'Failed to load login logs');
+            }
+
         } catch (error) {
-            console.error('Error updating system health:', error);
+            console.error('Error loading login logs:', error);
+            this.showNotification('Error loading login logs: ' + error.message, 'error');
+            
+            if (logsTableBody) {
+                logsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-8">
+                            <i data-lucide="alert-circle" class="w-12 h-12 text-red-400 mx-auto mb-4"></i>
+                            <p class="text-red-500">Error loading login logs</p>
+                            <button onclick="adminDashboard.loadLoginLogs()" class="btn btn-primary btn-sm mt-4">
+                                Try Again
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+        } finally {
+            if (logsLoading) logsLoading.classList.add('hidden');
         }
     }
 
-    updateHealthIndicator(percentage) {
-        const indicator = document.querySelector('.health-indicator');
-        if (indicator) {
-            indicator.style.width = percentage + '%';
-            indicator.className = `health-indicator h-2 rounded-full transition-all duration-300 ${
-                percentage > 80 ? 'bg-green-500' : 
-                percentage > 60 ? 'bg-yellow-500' : 'bg-red-500'
-            }`;
+    renderLoginLogs(logs) {
+        const logsTableBody = document.getElementById('logsTableBody');
+        
+        if (!logsTableBody) return;
+
+        if (logs.length === 0) {
+            logsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-8">
+                        <i data-lucide="file-text" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+                        <p class="text-gray-500">No login logs found</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        logsTableBody.innerHTML = logs.map(log => `
+            <tr>
+                <td>
+                    <div class="flex items-center">
+                        <div class="user-avatar">
+                            ${log.user_name ? log.user_name.charAt(0).toUpperCase() : '?'}
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-900">${this.escapeHtml(log.user_name || 'Unknown')}</p>
+                            <p class="text-sm text-gray-500">${this.escapeHtml(log.user_email || '')}</p>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge ${this.getRoleBadgeClass(log.user_role)}">
+                        ${this.formatRole(log.user_role)}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge ${log.action_type === 'login' ? 'badge-success' : 'badge-warning'}">
+                        ${log.action_type === 'login' ? 'Login' : 'Logout'}
+                    </span>
+                </td>
+                <td>
+                    <div>
+                        <p class="text-sm text-gray-900">${this.escapeHtml(log.ip_address || 'Unknown')}</p>
+                        <p class="text-xs text-gray-500">${this.escapeHtml(log.user_agent || '').substring(0, 50)}${log.user_agent && log.user_agent.length > 50 ? '...' : ''}</p>
+                    </div>
+                </td>
+                <td>
+                    <span class="text-sm text-gray-900">${this.formatDate(log.created_at)}</span>
+                </td>
+                <td>
+                    <span class="badge ${log.status === 'success' ? 'badge-success' : 'badge-danger'}">
+                        ${log.status === 'success' ? 'Success' : 'Failed'}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+
+        // Re-initialize Lucide icons
+        if (window.lucide) {
+            window.lucide.createIcons();
         }
     }
 
-    async updateNotifications() {
-        // Update notification count
-        try {
-            const response = await fetch('admin_dashboard.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'action=get_notifications'
-            });
-            const data = await response.json();
-            this.updateNotificationBadge(data.count);
-        } catch (error) {
-            console.error('Error updating notifications:', error);
-        }
+    // Analytics functionality
+    async loadAnalytics() {
+        console.log('Loading analytics data...');
+        // Analytics data is already loaded on page load via PHP
+        // This function can be used to refresh analytics data if needed
+        this.showNotification('Analytics data loaded', 'info');
     }
 
-    updateNotificationBadge(count) {
-        const badge = document.querySelector('.notification-badge');
-        if (badge) {
-            badge.textContent = count;
-            badge.classList.toggle('hidden', count === 0);
-        }
+    // Announcements functionality
+    async loadAnnouncements() {
+        console.log('Loading announcements...');
+        // Basic implementation - can be expanded later
+        this.showNotification('Announcements tab loaded', 'info');
     }
 }
 
 // Initialize dashboard when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
     window.adminDashboard = new AdminDashboard();
-});
-
-// Export for global access
-window.AdminDashboard = AdminDashboard; 
+    
+    // Initialize mobile menu
+    const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.querySelector('.sidebar-overlay');
+    
+    if (mobileMenuToggle && sidebar && sidebarOverlay) {
+        mobileMenuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('translate-x-0');
+            sidebarOverlay.classList.toggle('hidden');
+        });
+        
+        sidebarOverlay.addEventListener('click', () => {
+            sidebar.classList.remove('translate-x-0');
+            sidebarOverlay.classList.add('hidden');
+        });
+    }
+    
+    // Initialize Lucide icons
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+}); 

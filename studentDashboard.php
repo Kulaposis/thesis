@@ -37,9 +37,48 @@ if ($thesis) {
   <link rel="stylesheet" href="assets/css/word-viewer.css">
   <script src="assets/js/word-viewer.js"></script>
   <style>
-    .active-tab {
-      @apply text-blue-600 font-semibold bg-blue-50 rounded-md transition-colors duration-200;
+    /* Ensure sidebar active state works correctly */
+    aside.sidebar nav .nav-link.sidebar-item.active {
+      background: linear-gradient(135deg, #eff6ff, #dbeafe) !important;
+      color: #1d4ed8 !important;
+      font-weight: 600 !important;
+      position: relative !important;
+      border-radius: 0.75rem !important;
     }
+    
+    aside.sidebar nav .nav-link.sidebar-item.active::before {
+      content: '' !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      width: 4px !important;
+      height: 20px !important;
+      background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+      border-radius: 2px !important;
+    }
+    
+    /* Alternative styling if the above doesn't work */
+    .active-sidebar-tab {
+      background: linear-gradient(135deg, #eff6ff, #dbeafe) !important;
+      color: #1d4ed8 !important;
+      font-weight: 600 !important;
+      position: relative !important;
+      border-radius: 0.75rem !important;
+    }
+    
+    .active-sidebar-tab::before {
+      content: '' !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      width: 4px !important;
+      height: 20px !important;
+      background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+      border-radius: 2px !important;
+    }
+    
     .progress-bar {
       transition: width 0.6s ease;
     }
@@ -544,9 +583,14 @@ if ($thesis) {
           <!-- Document Viewer Panel -->
           <div class="lg:col-span-1">
             <div class="bg-white rounded-lg shadow h-full">
-              <div class="p-4 border-b">
-                <h3 class="font-semibold" id="student-document-title">Select a chapter to view feedback</h3>
-                <p class="text-sm text-gray-500" id="student-document-info"></p>
+              <div class="p-4 border-b flex justify-between items-center">
+                <div>
+                  <h3 class="font-semibold" id="student-document-title">Select a chapter to view feedback</h3>
+                  <p class="text-sm text-gray-500" id="student-document-info"></p>
+                </div>
+                <button id="student-fullscreen-btn" class="px-3 py-2 bg-indigo-100 text-indigo-800 rounded-lg text-sm hover:bg-indigo-200 transition-colors flex items-center hidden" title="Open in Full Screen">
+                  <i data-lucide="maximize" class="w-4 h-4 mr-1"></i><span class="hidden lg:inline">Full Screen</span>
+                </button>
               </div>
               <div class="h-full" style="height: calc(100vh - 200px);">
                 <div id="word-document-viewer" class="h-full">
@@ -585,19 +629,30 @@ if ($thesis) {
     lucide.createIcons();
 
     // Tab switching functionality
+    console.log('Setting up tab switching...');
     document.querySelectorAll('.sidebar-item').forEach(item => {
+      console.log('Found sidebar item:', item.getAttribute('data-tab'));
       item.addEventListener('click', function(e) {
         e.preventDefault();
+        console.log('Tab clicked:', this.getAttribute('data-tab'));
         
         // Remove active class from all tabs
         document.querySelectorAll('.sidebar-item').forEach(tab => {
-          tab.classList.remove('active-tab');
-          tab.classList.add('hover:bg-gray-50');
+          tab.classList.remove('active');
+          tab.classList.remove('active-sidebar-tab');
         });
+        console.log('Removed active from all tabs');
         
         // Add active class to clicked tab
-        this.classList.add('active-tab');
-        this.classList.remove('hover:bg-gray-50');
+        this.classList.add('active');
+        this.classList.add('active-sidebar-tab');
+        console.log('Added active to clicked tab:', this.getAttribute('data-tab'));
+        console.log('Current classes after adding active:', this.className);
+        
+        // Force a repaint to see if that helps
+        this.style.display = 'none';
+        this.offsetHeight; // trigger reflow
+        this.style.display = '';
         
         // Hide all content
         document.querySelectorAll('.tab-content').forEach(content => {
@@ -607,6 +662,7 @@ if ($thesis) {
         // Show selected content
         const tabName = this.getAttribute('data-tab');
         const content = document.getElementById(tabName + '-content');
+        console.log('Content element for', tabName + '-content', ':', content);
         if (content) {
           content.classList.remove('hidden');
         }
@@ -691,12 +747,16 @@ if ($thesis) {
 
     // Global Word viewer instance
     let wordViewer = null;
+    let studentCurrentFileId = null;
 
     // Initialize Word viewer with a document
     function initializeWordViewer(fileId) {
       // Create or recreate the word viewer
       const viewerContainer = document.getElementById('word-document-viewer');
       viewerContainer.innerHTML = '<div id="word-viewer-content" class="h-full"></div>';
+      
+      // Store the current file ID for fullscreen
+      studentCurrentFileId = fileId;
       
       // Initialize the Word viewer
       wordViewer = new WordViewer('word-viewer-content', {
@@ -707,6 +767,12 @@ if ($thesis) {
       
       // Load the document
       wordViewer.loadDocument(fileId);
+      
+      // Show the fullscreen button
+      const fullscreenBtn = document.getElementById('student-fullscreen-btn');
+      if (fullscreenBtn) {
+        fullscreenBtn.classList.remove('hidden');
+      }
     }
 
     // Show list of non-Word files
@@ -738,6 +804,13 @@ if ($thesis) {
         </div>
       `;
       lucide.createIcons();
+      
+      // Hide fullscreen button for file list
+      const fullscreenBtn = document.getElementById('student-fullscreen-btn');
+      if (fullscreenBtn) {
+        fullscreenBtn.classList.add('hidden');
+      }
+      studentCurrentFileId = null;
     }
 
     // Show text content (fallback for chapters with text content)
@@ -750,6 +823,13 @@ if ($thesis) {
           </div>
         </div>
       `;
+      
+      // Hide fullscreen button for text content
+      const fullscreenBtn = document.getElementById('student-fullscreen-btn');
+      if (fullscreenBtn) {
+        fullscreenBtn.classList.add('hidden');
+      }
+      studentCurrentFileId = null;
     }
 
     // Show no content message
@@ -762,6 +842,13 @@ if ($thesis) {
         </div>
       `;
       lucide.createIcons();
+      
+      // Hide fullscreen button
+      const fullscreenBtn = document.getElementById('student-fullscreen-btn');
+      if (fullscreenBtn) {
+        fullscreenBtn.classList.add('hidden');
+      }
+      studentCurrentFileId = null;
     }
 
     // Display comments for students
@@ -1187,6 +1274,360 @@ if ($thesis) {
       
       xhr.send(formData);
     });
+
+    // Fullscreen functionality for student dashboard
+    let studentFullscreenWordViewer = null;
+
+    // Event listener for fullscreen button
+    document.getElementById('student-fullscreen-btn').addEventListener('click', function() {
+      if (!studentCurrentFileId) {
+        alert('No document loaded. Please select a chapter with uploaded files to view in fullscreen.');
+        return;
+      }
+
+      const documentTitle = document.getElementById('student-document-title').textContent;
+      openStudentFullscreenView(documentTitle);
+    });
+
+    // Function to open fullscreen view for students
+    function openStudentFullscreenView(title) {
+      let fullscreenModal = document.getElementById('student-document-fullscreen-modal');
+      
+      if (!fullscreenModal) {
+        fullscreenModal = document.createElement('div');
+        fullscreenModal.id = 'student-document-fullscreen-modal';
+        fullscreenModal.className = 'document-fullscreen-modal';
+        fullscreenModal.innerHTML = `
+          <div class="fullscreen-header">
+            <div class="fullscreen-title" id="student-fullscreen-document-title">${title}</div>
+            <div class="flex items-center space-x-4">
+              <a id="student-fullscreen-download-btn" href="api/download_file.php?file_id=${studentCurrentFileId}" class="toolbar-action-btn" target="_blank">
+                <i data-lucide="download" class="w-4 h-4 mr-2"></i>Download
+              </a>
+              <button id="student-fullscreen-reload-btn" class="toolbar-action-btn bg-green-100 text-green-800" onclick="forceReloadStudentFullscreen()">
+                <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>Reload
+              </button>
+              <button id="close-student-fullscreen" class="fullscreen-close">
+                <i data-lucide="x" class="w-4 h-4 mr-2"></i>Close
+              </button>
+            </div>
+          </div>
+          <div class="fullscreen-content">
+            <div class="fullscreen-document">
+              <div id="student-fullscreen-document-content"></div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(fullscreenModal);
+        lucide.createIcons();
+
+        // Add close functionality
+        const closeBtn = fullscreenModal.querySelector('#close-student-fullscreen');
+        closeBtn.addEventListener('click', function() {
+          fullscreenModal.classList.remove('active');
+          document.body.style.overflow = 'auto';
+        });
+      } else {
+        fullscreenModal.querySelector('#student-fullscreen-document-title').textContent = title;
+        fullscreenModal.querySelector('#student-fullscreen-document-content').innerHTML = '';
+        fullscreenModal.querySelector('#student-fullscreen-download-btn').href = `api/download_file.php?file_id=${studentCurrentFileId}`;
+        
+        if (studentFullscreenWordViewer && typeof studentFullscreenWordViewer.destroy === 'function') {
+          studentFullscreenWordViewer.destroy();
+        }
+        studentFullscreenWordViewer = null;
+        lucide.createIcons();
+      }
+
+      // Show the modal
+      fullscreenModal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+
+      // Handle ESC key to close
+      const handleEscape = function(e) {
+        if (e.key === 'Escape') {
+          fullscreenModal.classList.remove('active');
+          document.body.style.overflow = 'auto';
+          document.removeEventListener('keydown', handleEscape);
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+
+      // Initialize the WordViewer for fullscreen
+      const fullscreenContent = fullscreenModal.querySelector('#student-fullscreen-document-content');
+      
+      if (studentCurrentFileId) {
+        // Clear previous content
+        fullscreenContent.innerHTML = '';
+        
+        // Initialize the WordViewer with proper error handling
+        try {
+          console.log('[Student Fullscreen] Creating new WordViewer instance...');
+          studentFullscreenWordViewer = new WordViewer('student-fullscreen-document-content', {
+            showComments: true,
+            showToolbar: false,
+            allowZoom: true
+          });
+          
+          // Check if WordViewer was properly initialized
+          if (!studentFullscreenWordViewer || !studentFullscreenWordViewer.container) {
+            throw new Error('Failed to initialize WordViewer container');
+          }
+          
+                     // Load the document with proper timeout handling
+           const loadWithTimeout = async () => {
+             const titleElement = fullscreenModal.querySelector('#student-fullscreen-document-title');
+             const originalTitle = titleElement.textContent;
+             
+             try {
+               // Update title to show loading
+               titleElement.textContent = originalTitle + ' (Loading...)';
+               
+               console.log('[Student Fullscreen] Starting document load for file ID:', studentCurrentFileId);
+               
+               // Show loading indicator
+               fullscreenContent.innerHTML = `
+                 <div class="text-center py-12">
+                   <div class="spinner"></div>
+                   <h3 class="text-lg font-semibold mb-2">Loading Document...</h3>
+                   <p class="text-sm text-gray-600 mb-4">Please wait while we process your document</p>
+                   <div class="text-xs text-gray-500">
+                     <div>• Fetching document content</div>
+                     <div>• Processing Word document structure</div>
+                     <div>• Preparing for display</div>
+                   </div>
+                 </div>
+               `;
+               
+               // Set a reasonable timeout for the loading (reduced to 20 seconds)
+               const timeoutPromise = new Promise((_, reject) => 
+                 setTimeout(() => reject(new Error('Document loading timed out after 20 seconds')), 20000)
+               );
+               
+               // Add retry mechanism
+               let attempts = 0;
+               const maxAttempts = 2;
+               
+               while (attempts < maxAttempts) {
+                 try {
+                   attempts++;
+                   console.log(`[Student Fullscreen] Load attempt ${attempts}/${maxAttempts}`);
+                   
+                   await Promise.race([
+                     studentFullscreenWordViewer.loadDocument(studentCurrentFileId),
+                     timeoutPromise
+                   ]);
+                   
+                   console.log('[Student Fullscreen] Document loaded successfully');
+                   
+                   // Restore original title
+                   titleElement.textContent = originalTitle;
+                   return; // Success, exit function
+                   
+                 } catch (attemptError) {
+                   console.log(`[Student Fullscreen] Attempt ${attempts} failed:`, attemptError.message);
+                   if (attempts >= maxAttempts) {
+                     throw attemptError; // Re-throw the error if all attempts failed
+                   }
+                   // Wait 2 seconds before retry
+                   await new Promise(resolve => setTimeout(resolve, 2000));
+                 }
+               }
+              
+                         } catch (error) {
+               console.error('[Student Fullscreen] Error loading document:', error);
+               
+               // Restore original title first
+               titleElement.textContent = originalTitle;
+               
+               // Show error message in fullscreen with more details
+               fullscreenContent.innerHTML = `
+                 <div class="text-center py-12">
+                   <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4 text-red-600"></i>
+                   <h3 class="text-lg font-semibold mb-2 text-red-800">Unable to Load Document</h3>
+                   <p class="text-sm text-gray-600 mb-4">${error.message}</p>
+                   
+                   <div class="bg-gray-50 p-4 rounded-lg mb-4 text-left max-w-md mx-auto">
+                     <h4 class="font-semibold text-sm mb-2">What you can try:</h4>
+                     <ul class="text-xs text-gray-600 space-y-1">
+                       <li>• Click "Try Again" to reload the document</li>
+                       <li>• Check your internet connection</li>
+                       <li>• Download the document to view it locally</li>
+                       <li>• Close fullscreen and try again</li>
+                     </ul>
+                   </div>
+                   
+                   <div class="space-y-2">
+                     <button onclick="forceReloadStudentFullscreen()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                       Try Again
+                     </button>
+                     <br>
+                     <a href="api/download_file.php?file_id=${studentCurrentFileId}" 
+                        class="inline-block px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" 
+                        target="_blank">
+                       Download Document
+                     </a>
+                     <br>
+                     <button onclick="document.getElementById('close-student-fullscreen').click()" 
+                             class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
+                       Close Fullscreen
+                     </button>
+                   </div>
+                 </div>
+               `;
+               lucide.createIcons();
+             }
+          };
+          
+          // Start loading
+          loadWithTimeout();
+          
+        } catch (error) {
+          console.error('[Student Fullscreen] Error creating WordViewer:', error);
+          fullscreenContent.innerHTML = `
+            <div class="text-center py-12">
+              <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4 text-red-600"></i>
+              <h3 class="text-lg font-semibold mb-2 text-red-800">Error Creating Document Viewer</h3>
+              <p class="text-sm text-gray-600 mb-4">${error.message}</p>
+              <button onclick="forceReloadStudentFullscreen()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                Try Again
+              </button>
+            </div>
+          `;
+          lucide.createIcons();
+        }
+      }
+    }
+
+    // Force reload function for student fullscreen
+    window.forceReloadStudentFullscreen = function() {
+      console.log('[Student Force Reload] Starting force reload...');
+      
+      if (!studentCurrentFileId) {
+        alert('No file selected. Please select a chapter first.');
+        return;
+      }
+      
+      const fullscreenContent = document.getElementById('student-fullscreen-document-content');
+      if (!fullscreenContent) {
+        alert('Fullscreen modal not found. Please close and reopen fullscreen mode.');
+        return;
+      }
+      
+      // Show loading indicator immediately
+      fullscreenContent.innerHTML = `
+        <div class="text-center py-12">
+          <div class="spinner"></div>
+          <h3 class="text-lg font-semibold mb-2">Reloading Document...</h3>
+          <p class="text-sm text-gray-600">Please wait while we reload the document</p>
+        </div>
+      `;
+      
+      try {
+        // Clean up previous instance
+        if (studentFullscreenWordViewer && typeof studentFullscreenWordViewer.destroy === 'function') {
+          studentFullscreenWordViewer.destroy();
+        }
+        studentFullscreenWordViewer = null;
+        
+        // Small delay to ensure cleanup
+        setTimeout(() => {
+          try {
+            console.log('[Student Force Reload] Creating new WordViewer instance...');
+            studentFullscreenWordViewer = new WordViewer('student-fullscreen-document-content', {
+              showComments: true,
+              showToolbar: false,
+              allowZoom: true
+            });
+            
+            console.log('[Student Force Reload] Loading document...');
+            
+            // Set a timeout for force reload (shorter than normal load)
+            const reloadTimeout = setTimeout(() => {
+              console.error('[Student Force Reload] Reload timed out');
+              fullscreenContent.innerHTML = `
+                <div class="text-center py-12">
+                  <i data-lucide="clock" class="w-16 h-16 mx-auto mb-4 text-orange-600"></i>
+                  <h3 class="text-lg font-semibold mb-2 text-orange-800">Reload Timed Out</h3>
+                  <p class="text-sm text-gray-600 mb-4">The document is taking too long to reload.</p>
+                  <div class="space-y-2">
+                    <button onclick="forceReloadStudentFullscreen()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                      Try Again
+                    </button>
+                    <br>
+                    <a href="api/download_file.php?file_id=${studentCurrentFileId}" 
+                       class="inline-block px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" 
+                       target="_blank">
+                      Download Document
+                    </a>
+                  </div>
+                </div>
+              `;
+              lucide.createIcons();
+            }, 15000); // 15 second timeout for reload
+            
+            studentFullscreenWordViewer.loadDocument(studentCurrentFileId)
+              .then(() => {
+                clearTimeout(reloadTimeout);
+                console.log('[Student Force Reload] Document loaded successfully');
+              })
+              .catch(error => {
+                clearTimeout(reloadTimeout);
+                console.error('[Student Force Reload] Error loading document:', error);
+                fullscreenContent.innerHTML = `
+                  <div class="text-center py-12">
+                    <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4 text-red-600"></i>
+                    <h3 class="text-lg font-semibold mb-2 text-red-800">Reload Failed</h3>
+                    <p class="text-sm text-gray-600 mb-4">${error.message}</p>
+                    <div class="space-y-2">
+                      <button onclick="forceReloadStudentFullscreen()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        Try Again
+                      </button>
+                      <br>
+                      <a href="api/download_file.php?file_id=${studentCurrentFileId}" 
+                         class="inline-block px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" 
+                         target="_blank">
+                        Download Document
+                      </a>
+                    </div>
+                  </div>
+                `;
+                lucide.createIcons();
+              });
+              
+          } catch (error) {
+            console.error('[Student Force Reload] Error creating viewer:', error);
+            fullscreenContent.innerHTML = `
+              <div class="text-center py-12">
+                <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4 text-red-600"></i>
+                <h3 class="text-lg font-semibold mb-2 text-red-800">Error Creating Viewer</h3>
+                <p class="text-sm text-gray-600 mb-4">${error.message}</p>
+                <button onclick="document.getElementById('close-student-fullscreen').click()" 
+                        class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
+                  Close Fullscreen
+                </button>
+              </div>
+            `;
+            lucide.createIcons();
+          }
+        }, 500); // 500ms delay
+        
+      } catch (error) {
+        console.error('[Student Force Reload] Initial error:', error);
+        fullscreenContent.innerHTML = `
+          <div class="text-center py-12">
+            <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4 text-red-600"></i>
+            <h3 class="text-lg font-semibold mb-2 text-red-800">Unexpected Error</h3>
+            <p class="text-sm text-gray-600 mb-4">${error.message}</p>
+            <button onclick="document.getElementById('close-student-fullscreen').click()" 
+                    class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
+              Close Fullscreen
+            </button>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+    };
   </script>
 
   <!-- Modern UI Framework -->

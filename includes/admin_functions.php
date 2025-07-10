@@ -95,39 +95,395 @@ class AdminManager {
     }
 
     // ========================================
-    // USER MANAGEMENT
+    // LOGIN/LOGOUT LOGGING
     // ========================================
 
-    public function getAllUsers($filters = []) {
+    public function logUserLogin($userId, $role, $actionType = 'login', $additionalData = []) {
+        try {
+            // Get user's IP address
+            $ipAddress = $this->getUserIpAddress();
+            
+            // Get user agent
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+            
+            // Parse browser info
+            $browserInfo = $this->parseBrowserInfo($userAgent);
+            
+            $query = "INSERT INTO login_logs (user_id, user_role, action_type, ip_address, user_agent, browser_info, login_time) 
+                     VALUES (:user_id, :user_role, :action_type, :ip_address, :user_agent, :browser_info, :login_time)";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':user_id', $userId);
+            $stmt->bindParam(':user_role', $role);
+            $stmt->bindParam(':action_type', $actionType);
+            $stmt->bindParam(':ip_address', $ipAddress);
+            $stmt->bindParam(':user_agent', $userAgent);
+            $stmt->bindParam(':browser_info', $browserInfo);
+            $stmt->bindParam(':login_time', date('Y-m-d H:i:s'));
+            
+            if ($stmt->execute()) {
+                $loginLogId = $this->conn->lastInsertId();
+                
+                // Store login log ID in session for logout tracking
+                if ($actionType === 'login') {
+                    $_SESSION['login_log_id'] = $loginLogId;
+                }
+                
+                return $loginLogId;
+            }
+            
+            return false;
+            
+        } catch (Exception $e) {
+            error_log("Error logging user login: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function logUserLogout($userId = null, $role = null) {
+        try {
+            // Get user info from session if not provided
+            if (!$userId && isset($_SESSION['user_id'])) {
+                $userId = $_SESSION['user_id'];
+                $user = $this->getCurrentUser();
+                $role = $user['role'] ?? 'unknown';
+            }
+            
+            if (!$userId) {
+                return false;
+            }
+            
+            // Get the login log ID from session
+            $loginLogId = $_SESSION['login_log_id'] ?? null;
+            
+            if ($loginLogId) {
+                // Update the existing login record with logout time
+                $query = "UPDATE login_logs SET 
+                         logout_time = :logout_time,
+                         session_duration = TIMESTAMPDIFF(SECOND, login_time, :logout_time2),
+                         updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :login_log_id AND user_id = :user_id";
+                
+                $logoutTime = date('Y-m-d H:i:s');
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(':logout_time', $logoutTime);
+                $stmt->bindParam(':logout_time2', $logoutTime);
+                $stmt->bindParam(':login_log_id', $loginLogId);
+                $stmt->bindParam(':user_id', $userId);
+                
+                $stmt->execute();
+                
+                // Clear the login log ID from session
+                unset($_SESSION['login_log_id']);
+            } else {
+                // Create a new logout log entry if no login record found
+                $this->logUserLogin($userId, $role, 'logout');
+            }
+            
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("Error logging user logout: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getLoginLogs($limit = 100, $filters = []) {
         try {
             $where_conditions = [];
             $params = [];
             
             // Build WHERE clause based on filters
-            if (!empty($filters['role'])) {
-                $where_conditions[] = "role = :role";
-                $params[':role'] = $filters['role'];
+            if (!empty($filters['user_role'])) {
+                $where_conditions[] = "ll.user_role = :user_role";
+                $params[':user_role'] = $filters['user_role'];
             }
             
-            if (!empty($filters['search'])) {
-                $where_conditions[] = "(full_name LIKE :search OR email LIKE :search)";
-                $params[':search'] = '%' . $filters['search'] . '%';
+            if (!empty($filters['action_type'])) {
+                $where_conditions[] = "ll.action_type = :action_type";
+                $params[':action_type'] = $filters['action_type'];
             }
             
-            if (!empty($filters['department'])) {
-                $where_conditions[] = "department = :department";
-                $params[':department'] = $filters['department'];
+            if (!empty($filters['date_from'])) {
+                $where_conditions[] = "DATE(ll.created_at) >= :date_from";
+                $params[':date_from'] = $filters['date_from'];
+            }
+            
+            if (!empty($filters['date_to'])) {
+                $where_conditions[] = "DATE(ll.created_at) <= :date_to";
+                $params[':date_to'] = $filters['date_to'];
+            }
+            
+            if (!empty($filters['user_search'])) {
+                $where_conditions[] = "(u.full_name LIKE :user_search OR u.email LIKE :user_search)";
+                $params[':user_search'] = '%' . $filters['user_search'] . '%';
             }
             
             $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
             
-            $query = "SELECT id, email, full_name, role, student_id, faculty_id, program, department, created_at, updated_at 
-                     FROM users {$where_clause} ORDER BY created_at DESC";
+            $query = "SELECT 
+                        ll.*,
+                        u.full_name,
+                        u.email,
+                        u.student_id,
+                        u.faculty_id,
+                        CASE 
+                            WHEN ll.session_duration IS NOT NULL THEN 
+                                CONCAT(
+                                    FLOOR(ll.session_duration / 3600), 'h ',
+                                    FLOOR((ll.session_duration % 3600) / 60), 'm ',
+                                    (ll.session_duration % 60), 's'
+                                )
+                            ELSE 'Active/Unknown'
+                        END as formatted_duration
+                     FROM login_logs ll
+                     JOIN users u ON ll.user_id = u.id
+                     {$where_clause}
+                     ORDER BY ll.created_at DESC
+                     LIMIT :limit";
             
             $stmt = $this->conn->prepare($query);
-            $stmt->execute($params);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+            $stmt->execute();
             
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error getting login logs: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getLoginStatistics($days = 30) {
+        try {
+            $stats = [];
+            
+            // Get login counts by role for the last X days
+            $query = "SELECT 
+                        user_role,
+                        action_type,
+                        DATE(created_at) as login_date,
+                        COUNT(*) as count
+                     FROM login_logs 
+                     WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
+                     GROUP BY user_role, action_type, DATE(created_at)
+                     ORDER BY login_date DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':days', $days, PDO::PARAM_INT);
+            $stmt->execute();
+            $stats['daily_activity'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Get total unique users logged in today
+            $query = "SELECT COUNT(DISTINCT user_id) as count 
+                     FROM login_logs 
+                     WHERE DATE(created_at) = CURDATE() 
+                     AND action_type = 'login'";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $stats['unique_users_today'] = $stmt->fetch()['count'];
+            
+            // Get average session duration by role
+            $query = "SELECT 
+                        user_role,
+                        AVG(session_duration) as avg_duration,
+                        COUNT(*) as session_count
+                     FROM login_logs 
+                     WHERE session_duration IS NOT NULL 
+                     AND created_at >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                     GROUP BY user_role";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':days', $days, PDO::PARAM_INT);
+            $stmt->execute();
+            $stats['session_durations'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Get current active sessions (logged in but not logged out)
+            $query = "SELECT COUNT(*) as count 
+                     FROM login_logs ll1
+                     WHERE ll1.action_type = 'login' 
+                     AND ll1.logout_time IS NULL
+                     AND NOT EXISTS (
+                         SELECT 1 FROM login_logs ll2 
+                         WHERE ll2.user_id = ll1.user_id 
+                         AND ll2.id > ll1.id
+                     )";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $stats['active_sessions'] = $stmt->fetch()['count'];
+            
+            return $stats;
+            
+        } catch (Exception $e) {
+            error_log("Error getting login statistics: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function getUserIpAddress() {
+        // Check for various IP address headers
+        $ipKeys = ['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED', 
+                   'HTTP_X_CLUSTER_CLIENT_IP', 'HTTP_FORWARDED_FOR', 'HTTP_FORWARDED', 'REMOTE_ADDR'];
+        
+        foreach ($ipKeys as $key) {
+            if (array_key_exists($key, $_SERVER) === true) {
+                foreach (explode(',', $_SERVER[$key]) as $ip) {
+                    $ip = trim($ip);
+                    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                        return $ip;
+                    }
+                }
+            }
+        }
+        
+        return $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+    }
+
+    private function parseBrowserInfo($userAgent) {
+        // Simple browser detection
+        $browsers = [
+            'Chrome' => '/Chrome\/([0-9.]+)/',
+            'Firefox' => '/Firefox\/([0-9.]+)/',
+            'Safari' => '/Safari\/([0-9.]+)/',
+            'Edge' => '/Edge\/([0-9.]+)/',
+            'Opera' => '/Opera\/([0-9.]+)/',
+            'Internet Explorer' => '/MSIE ([0-9.]+)/'
+        ];
+        
+        foreach ($browsers as $browser => $pattern) {
+            if (preg_match($pattern, $userAgent, $matches)) {
+                return $browser . ' ' . $matches[1];
+            }
+        }
+        
+        return 'Unknown Browser';
+    }
+
+    // ========================================
+    // USER MANAGEMENT
+    // ========================================
+
+    public function getAllUsers($filters = []) {
+        try {
+            // Check if students and advisers tables exist
+            $tableExists = [];
+            $stmt = $this->conn->query("SHOW TABLES LIKE 'students'");
+            $tableExists['students'] = $stmt->rowCount() > 0;
+            
+            $stmt = $this->conn->query("SHOW TABLES LIKE 'advisers'");
+            $tableExists['advisers'] = $stmt->rowCount() > 0;
+            
+            // Check if is_active column exists
+            $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE 'is_active'");
+            $hasIsActive = $stmt->rowCount() > 0;
+            
+            // Check if created_at column exists
+            $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE 'created_at'");
+            $hasCreatedAt = $stmt->rowCount() > 0;
+            
+            $sql = "
+                SELECT 
+                    u.id,
+                    u.full_name,
+                    u.email,
+                    u.role,
+                    " . ($hasCreatedAt ? "u.created_at," : "NOW() as created_at,") . "
+                    " . ($hasIsActive ? "u.is_active," : "1 as is_active,") . "
+                    u.student_id,
+                    u.program,
+                    u.department,
+                    u.faculty_id,
+                    ll.login_time as last_login,
+                    ll.logout_time as last_logout,
+                    CASE 
+                        WHEN ll.login_time IS NOT NULL AND ll.logout_time IS NULL THEN 'online'
+                        WHEN DATE(ll.login_time) = CURDATE() THEN 'active_today'
+                        ELSE 'offline'
+                    END as status
+                FROM users u
+                LEFT JOIN (
+                    SELECT 
+                        user_id, 
+                        MAX(CASE WHEN action_type = 'login' THEN login_time END) as login_time,
+                        MAX(CASE WHEN action_type = 'logout' THEN login_time END) as logout_time
+                    FROM login_logs
+                    GROUP BY user_id
+                ) ll ON u.id = ll.user_id
+                WHERE 1=1
+            ";
+            
+            $params = [];
+            
+            // Add filters
+            if (!empty($filters['role'])) {
+                $sql .= " AND u.role = ?";
+                $params[] = $filters['role'];
+            }
+            
+            if (!empty($filters['search'])) {
+                $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR s.student_id LIKE ? OR a.faculty_id LIKE ?)";
+                $searchPattern = "%{$filters['search']}%";
+                $params[] = $searchPattern;
+                $params[] = $searchPattern;
+                $params[] = $searchPattern;
+                $params[] = $searchPattern;
+            }
+            
+            if (!empty($filters['department'])) {
+                $sql .= " AND (s.department = ? OR a.department = ?)";
+                $params[] = $filters['department'];
+                $params[] = $filters['department'];
+            }
+            
+            if (!empty($filters['program'])) {
+                $sql .= " AND s.program = ?";
+                $params[] = $filters['program'];
+            }
+            
+            if (!empty($filters['status'])) {
+                if ($filters['status'] === 'active') {
+                    $sql .= " AND u.is_active = 1";
+                } elseif ($filters['status'] === 'inactive') {
+                    $sql .= " AND u.is_active = 0";
+                }
+            }
+            
+            $sql .= " ORDER BY u.created_at DESC";
+            
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute($params);
+            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Format user data
+            foreach ($users as &$user) {
+                $user['is_active'] = (bool)$user['is_active'];
+                
+                // Format display name
+                if (empty($user['full_name'])) {
+                    $user['display_name'] = $user['email'];
+                } else {
+                    $user['display_name'] = $user['full_name'];
+                }
+                
+                // Format role display
+                $user['role_display'] = $this->formatRole($user['role']);
+                
+                // Set default thesis progress for students
+                if ($user['role'] === 'student') {
+                    $user['progress_percentage'] = 0; // Default value since we don't have thesis_progress column
+                }
+                
+                // Clean up null values
+                $user['student_id'] = $user['student_id'] ?: null;
+                $user['faculty_id'] = $user['faculty_id'] ?: null;
+                $user['program'] = $user['program'] ?: null;
+                $user['department'] = $user['department'] ?: null;
+            }
+            
+            return $users;
             
         } catch (Exception $e) {
             error_log("Error getting users: " . $e->getMessage());
@@ -137,79 +493,242 @@ class AdminManager {
 
     public function createUser($userData) {
         try {
-            $query = "INSERT INTO users (email, password, full_name, role, student_id, faculty_id, program, department) 
-                     VALUES (:email, :password, :full_name, :role, :student_id, :faculty_id, :program, :department)";
+            $this->conn->beginTransaction();
             
-            $stmt = $this->conn->prepare($query);
-            
-            $hashed_password = password_hash($userData['password'], PASSWORD_DEFAULT);
-            
-            $stmt->bindParam(':email', $userData['email']);
-            $stmt->bindParam(':password', $hashed_password);
-            $stmt->bindParam(':full_name', $userData['full_name']);
-            $stmt->bindParam(':role', $userData['role']);
-            $stmt->bindParam(':student_id', $userData['student_id']);
-            $stmt->bindParam(':faculty_id', $userData['faculty_id']);
-            $stmt->bindParam(':program', $userData['program']);
-            $stmt->bindParam(':department', $userData['department']);
-            
-            if ($stmt->execute()) {
-                $user_id = $this->conn->lastInsertId();
-                $this->logAdminAction('create_user', 'user', $user_id, $userData);
-                return $user_id;
+            // Validate required fields
+            $requiredFields = ['full_name', 'email', 'role'];
+            foreach ($requiredFields as $field) {
+                if (empty($userData[$field])) {
+                    return ['success' => false, 'message' => "Field '{$field}' is required"];
+                }
             }
             
-            return false;
+            // Validate email format
+            if (!filter_var($userData['email'], FILTER_VALIDATE_EMAIL)) {
+                return ['success' => false, 'message' => 'Invalid email format'];
+            }
+            
+            // Check if email already exists
+            $stmt = $this->conn->prepare("SELECT id FROM users WHERE email = ?");
+            $stmt->execute([$userData['email']]);
+            if ($stmt->fetch()) {
+                return ['success' => false, 'message' => 'Email already exists'];
+            }
+            
+            // Generate password if not provided
+            $password = !empty($userData['password']) ? $userData['password'] : $this->generateSecurePassword();
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+            
+            // Create user
+            $stmt = $this->conn->prepare("
+                INSERT INTO users (full_name, email, password, role, created_at, is_active)
+                VALUES (?, ?, ?, ?, NOW(), 1)
+            ");
+            $stmt->execute([
+                $userData['full_name'],
+                $userData['email'],
+                $hashedPassword,
+                $userData['role']
+            ]);
+            
+            $userId = $this->conn->lastInsertId();
+            
+            // Create role-specific records
+            if ($userData['role'] === 'student') {
+                $stmt = $this->conn->prepare("
+                    INSERT INTO students (user_id, student_id, program, department, thesis_progress, created_at)
+                    VALUES (?, ?, ?, ?, 0, NOW())
+                ");
+                $stmt->execute([
+                    $userId,
+                    $userData['student_id'] ?? null,
+                    $userData['program'] ?? null,
+                    $userData['department'] ?? null
+                ]);
+            } elseif ($userData['role'] === 'adviser') {
+                $stmt = $this->conn->prepare("
+                    INSERT INTO advisers (user_id, faculty_id, department, specialization, created_at)
+                    VALUES (?, ?, ?, ?, NOW())
+                ");
+                $stmt->execute([
+                    $userId,
+                    $userData['faculty_id'] ?? null,
+                    $userData['adviser_department'] ?? $userData['department'] ?? null,
+                    $userData['specialization'] ?? null
+                ]);
+            }
+            
+            $this->conn->commit();
+            
+            // Log admin action
+            $this->logAdminAction('create_user', 'user', $userId, $userData);
+            
+            $result = [
+                'success' => true,
+                'message' => 'User created successfully',
+                'user_id' => $userId
+            ];
+            
+            // Include password if it was generated
+            if (empty($userData['password'])) {
+                $result['password'] = $password;
+            }
+            
+            return $result;
             
         } catch (Exception $e) {
-            error_log("Error creating user: " . $e->getMessage());
+            $this->conn->rollBack();
+            return ['success' => false, 'message' => 'Error creating user: ' . $e->getMessage()];
+        }
+    }
+
+    public function getUserById($userId) {
+        try {
+            $query = "SELECT id, email, full_name, role, student_id, faculty_id, program, department, created_at, updated_at 
+                     FROM users WHERE id = :id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':id', $userId);
+            $stmt->execute();
+            
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error getting user by ID: " . $e->getMessage());
             return false;
         }
     }
 
     public function updateUser($userId, $userData) {
         try {
-            $query = "UPDATE users SET full_name = :full_name, role = :role, student_id = :student_id, 
-                     faculty_id = :faculty_id, program = :program, department = :department WHERE id = :id";
+            $this->conn->beginTransaction();
             
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(':id', $userId);
-            $stmt->bindParam(':full_name', $userData['full_name']);
-            $stmt->bindParam(':role', $userData['role']);
-            $stmt->bindParam(':student_id', $userData['student_id']);
-            $stmt->bindParam(':faculty_id', $userData['faculty_id']);
-            $stmt->bindParam(':program', $userData['program']);
-            $stmt->bindParam(':department', $userData['department']);
-            
-            if ($stmt->execute()) {
-                $this->logAdminAction('update_user', 'user', $userId, $userData);
-                return true;
+            // Validate required fields
+            $requiredFields = ['full_name', 'email', 'role'];
+            foreach ($requiredFields as $field) {
+                if (empty($userData[$field])) {
+                    return ['success' => false, 'message' => "Field '{$field}' is required"];
+                }
             }
             
-            return false;
+            // Validate email format
+            if (!filter_var($userData['email'], FILTER_VALIDATE_EMAIL)) {
+                return ['success' => false, 'message' => 'Invalid email format'];
+            }
+            
+            // Check if email exists for other users
+            $stmt = $this->conn->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
+            $stmt->execute([$userData['email'], $userId]);
+            if ($stmt->fetch()) {
+                return ['success' => false, 'message' => 'Email already exists'];
+            }
+            
+            // Update user
+            $stmt = $this->conn->prepare("
+                UPDATE users 
+                SET full_name = ?, email = ?, role = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                $userData['full_name'],
+                $userData['email'],
+                $userData['role'],
+                $userId
+            ]);
+            
+            // Update role-specific records
+            if ($userData['role'] === 'student') {
+                // Delete from advisers if exists
+                $this->conn->prepare("DELETE FROM advisers WHERE user_id = ?")->execute([$userId]);
+                
+                // Update or insert student record
+                $stmt = $this->conn->prepare("
+                    INSERT INTO students (user_id, student_id, program, department, thesis_progress, created_at)
+                    VALUES (?, ?, ?, ?, 0, NOW())
+                    ON DUPLICATE KEY UPDATE
+                    student_id = VALUES(student_id),
+                    program = VALUES(program),
+                    department = VALUES(department)
+                ");
+                $stmt->execute([
+                    $userId,
+                    $userData['student_id'] ?? null,
+                    $userData['program'] ?? null,
+                    $userData['department'] ?? null
+                ]);
+            } elseif ($userData['role'] === 'adviser') {
+                // Delete from students if exists
+                $this->conn->prepare("DELETE FROM students WHERE user_id = ?")->execute([$userId]);
+                
+                // Update or insert adviser record
+                $stmt = $this->conn->prepare("
+                    INSERT INTO advisers (user_id, faculty_id, department, specialization, created_at)
+                    VALUES (?, ?, ?, ?, NOW())
+                    ON DUPLICATE KEY UPDATE
+                    faculty_id = VALUES(faculty_id),
+                    department = VALUES(department),
+                    specialization = VALUES(specialization)
+                ");
+                $stmt->execute([
+                    $userId,
+                    $userData['faculty_id'] ?? null,
+                    $userData['adviser_department'] ?? $userData['department'] ?? null,
+                    $userData['specialization'] ?? null
+                ]);
+            } else {
+                // Remove from role-specific tables if changing to admin
+                $this->conn->prepare("DELETE FROM students WHERE user_id = ?")->execute([$userId]);
+                $this->conn->prepare("DELETE FROM advisers WHERE user_id = ?")->execute([$userId]);
+            }
+            
+            $this->conn->commit();
+            
+            // Log admin action
+            $this->logAdminAction('update_user', 'user', $userId, $userData);
+            
+            return ['success' => true, 'message' => 'User updated successfully'];
             
         } catch (Exception $e) {
-            error_log("Error updating user: " . $e->getMessage());
-            return false;
+            $this->conn->rollBack();
+            return ['success' => false, 'message' => 'Error updating user: ' . $e->getMessage()];
         }
     }
 
     public function deleteUser($userId) {
         try {
-            $query = "DELETE FROM users WHERE id = :id";
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(':id', $userId);
+            // Check if user exists
+            $stmt = $this->conn->prepare("SELECT full_name FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
             
-            if ($stmt->execute()) {
-                $this->logAdminAction('delete_user', 'user', $userId);
-                return true;
+            if (!$user) {
+                return ['success' => false, 'message' => 'User not found'];
             }
             
-            return false;
+            // Prevent deleting yourself
+            if ($userId == $_SESSION['user_id']) {
+                return ['success' => false, 'message' => 'Cannot delete your own account'];
+            }
+            
+            $this->conn->beginTransaction();
+            
+            // Delete from role-specific tables first (foreign key constraints)
+            $this->conn->prepare("DELETE FROM students WHERE user_id = ?")->execute([$userId]);
+            $this->conn->prepare("DELETE FROM advisers WHERE user_id = ?")->execute([$userId]);
+            
+            // Delete user
+            $stmt = $this->conn->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            
+            $this->conn->commit();
+            
+            // Log admin action
+            $this->logAdminAction('delete_user', 'user', $userId);
+            
+            return ['success' => true, 'message' => 'User deleted successfully'];
             
         } catch (Exception $e) {
-            error_log("Error deleting user: " . $e->getMessage());
-            return false;
+            $this->conn->rollBack();
+            return ['success' => false, 'message' => 'Error deleting user: ' . $e->getMessage()];
         }
     }
 
@@ -219,71 +738,149 @@ class AdminManager {
 
     public function bulkUserOperation($userIds, $operation, $data = []) {
         try {
-            $this->conn->beginTransaction();
-            
-            foreach ($userIds as $userId) {
-                switch ($operation) {
-                    case 'delete':
-                        $this->deleteUser($userId);
-                        break;
-                    case 'update_role':
-                        $this->updateUser($userId, ['role' => $data['new_role']]);
-                        break;
-                    case 'reset_password':
-                        $this->resetUserPassword($userId);
-                        break;
-                }
+            if (empty($userIds) || !is_array($userIds)) {
+                return ['success' => false, 'message' => 'User IDs are required'];
             }
             
-            $this->conn->commit();
-            $this->logAdminAction('bulk_operation', 'users', null, [
-                'operation' => $operation,
-                'user_count' => count($userIds),
-                'data' => $data
-            ]);
+            $this->conn->beginTransaction();
+            $count = 0;
+            $results = [];
             
-            return true;
+            switch ($operation) {
+                case 'delete':
+                    // Prevent deleting yourself
+                    if (in_array($_SESSION['user_id'], $userIds)) {
+                        return ['success' => false, 'message' => 'Cannot delete your own account'];
+                    }
+                    
+                    foreach ($userIds as $userId) {
+                        $result = $this->deleteUser($userId);
+                        if ($result['success']) {
+                            $count++;
+                        }
+                    }
+                    
+                    $this->conn->commit();
+                    return [
+                        'success' => true,
+                        'message' => "$count user(s) deleted successfully",
+                        'count' => $count
+                    ];
+                    
+                case 'reset_password':
+                    $passwords = [];
+                    
+                    foreach ($userIds as $userId) {
+                        // Get user info
+                        $stmt = $this->conn->prepare("SELECT full_name, email FROM users WHERE id = ?");
+                        $stmt->execute([$userId]);
+                        $user = $stmt->fetch();
+                        
+                        if ($user) {
+                            $result = $this->resetUserPassword($userId);
+                            if ($result['success']) {
+                                $passwords[] = [
+                                    'user_id' => $userId,
+                                    'name' => $user['full_name'],
+                                    'email' => $user['email'],
+                                    'password' => $result['password']
+                                ];
+                                $count++;
+                            }
+                        }
+                    }
+                    
+                    $this->conn->commit();
+                    return [
+                        'success' => true,
+                        'message' => "Passwords reset for $count user(s)",
+                        'count' => $count,
+                        'passwords' => $passwords
+                    ];
+                    
+                case 'update_role':
+                    if (empty($data['new_role'])) {
+                        return ['success' => false, 'message' => 'New role is required'];
+                    }
+                    
+                    foreach ($userIds as $userId) {
+                        $result = $this->updateUser($userId, ['role' => $data['new_role']]);
+                        if ($result['success']) {
+                            $count++;
+                        }
+                    }
+                    
+                    $this->conn->commit();
+                    return [
+                        'success' => true,
+                        'message' => "$count user(s) role updated successfully",
+                        'count' => $count
+                    ];
+                    
+                default:
+                    return ['success' => false, 'message' => 'Invalid operation'];
+            }
             
         } catch (Exception $e) {
             $this->conn->rollback();
-            error_log("Error performing bulk operation: " . $e->getMessage());
-            return false;
+            return ['success' => false, 'message' => 'Error performing bulk operation: ' . $e->getMessage()];
         }
     }
 
     public function resetUserPassword($userId, $newPassword = null) {
         try {
+            // Check if user exists
+            $stmt = $this->conn->prepare("SELECT full_name, email FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
+            
+            if (!$user) {
+                return ['success' => false, 'message' => 'User not found'];
+            }
+            
+            // Generate new password if not provided
             if (!$newPassword) {
-                $newPassword = $this->generateRandomPassword();
+                $newPassword = $this->generateSecurePassword();
             }
             
-            $hashed_password = password_hash($newPassword, PASSWORD_DEFAULT);
+            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
             
-            $query = "UPDATE users SET password = :password WHERE id = :id";
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(':password', $hashed_password);
-            $stmt->bindParam(':id', $userId);
+            // Update password
+            $stmt = $this->conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+            $stmt->execute([$hashedPassword, $userId]);
             
-            if ($stmt->execute()) {
-                $this->logAdminAction('reset_password', 'user', $userId);
-                return $newPassword; // Return the plain password for admin to share with user
-            }
+            // Log admin action
+            $this->logAdminAction('reset_password', 'user', $userId);
             
-            return false;
+            return [
+                'success' => true,
+                'message' => 'Password reset successfully',
+                'password' => $newPassword
+            ];
             
         } catch (Exception $e) {
-            error_log("Error resetting password: " . $e->getMessage());
-            return false;
+            return ['success' => false, 'message' => 'Error resetting password: ' . $e->getMessage()];
         }
     }
 
-    private function generateRandomPassword($length = 8) {
-        $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    public function generateSecurePassword($length = 12) {
+        $uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        $numbers = '0123456789';
+        $symbols = '!@#$%^&*';
+        
         $password = '';
-        for ($i = 0; $i < $length; $i++) {
-            $password .= $characters[rand(0, strlen($characters) - 1)];
+        $password .= $uppercase[random_int(0, strlen($uppercase) - 1)];
+        $password .= $lowercase[random_int(0, strlen($lowercase) - 1)];
+        $password .= $numbers[random_int(0, strlen($numbers) - 1)];
+        $password .= $symbols[random_int(0, strlen($symbols) - 1)];
+        
+        $allChars = $uppercase . $lowercase . $numbers . $symbols;
+        for ($i = 4; $i < $length; $i++) {
+            $password .= $allChars[random_int(0, strlen($allChars) - 1)];
         }
-        return $password;
+        
+        return str_shuffle($password);
     }
 
     // ========================================
@@ -610,6 +1207,16 @@ class AdminManager {
             error_log("Error getting current user: " . $e->getMessage());
             return null;
         }
+    }
+
+    private function formatRole($role) {
+        $roles = [
+            'student' => 'Student',
+            'adviser' => 'Adviser',
+            'admin' => 'Admin',
+            'super_admin' => 'Super Admin'
+        ];
+        return $roles[$role] ?? ucfirst($role);
     }
 }
 ?>

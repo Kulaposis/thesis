@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'create_user':
             $userData = [
                 'email' => $_POST['email'],
-                'password' => $_POST['password'],
+                'password' => $_POST['password'] ?? $adminManager->generateRandomPassword(),
                 'full_name' => $_POST['full_name'],
                 'role' => $_POST['role'],
                 'student_id' => $_POST['student_id'] ?? null,
@@ -61,7 +61,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'department' => $_POST['department'] ?? null
             ];
             $result = $adminManager->createUser($userData);
-            echo json_encode(['success' => $result !== false, 'user_id' => $result]);
+            if ($result !== false) {
+                echo json_encode([
+                    'success' => true, 
+                    'user_id' => $result,
+                    'password' => $userData['password'],
+                    'message' => 'User created successfully! Password: ' . $userData['password']
+                ]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to create user']);
+            }
             exit();
             
         case 'delete_user':
@@ -92,6 +101,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $adminManager = new AdminManager();
             $workload = $adminManager->getAdviserWorkload();
             echo json_encode($workload);
+            exit();
+            
+        case 'get_user':
+            $userId = $_POST['user_id'];
+            $user = $adminManager->getUserById($userId);
+            if ($user) {
+                echo json_encode(['success' => true, 'user' => $user]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'User not found']);
+            }
+            exit();
+            
+        case 'update_user':
+            $userId = $_POST['user_id'];
+            $userData = [
+                'full_name' => $_POST['full_name'],
+                'email' => $_POST['email'],
+                'role' => $_POST['role'],
+                'student_id' => $_POST['student_id'] ?? null,
+                'faculty_id' => $_POST['faculty_id'] ?? null,
+                'program' => $_POST['program'] ?? null,
+                'department' => $_POST['department'] ?? null
+            ];
+            $result = $adminManager->updateUser($userId, $userData);
+            echo json_encode(['success' => $result, 'message' => $result ? 'User updated successfully' : 'Failed to update user']);
+            exit();
+            
+        case 'get_login_logs':
+            error_log("Admin Dashboard: get_login_logs request received");
+            error_log("POST data: " . json_encode($_POST));
+            
+            $filters = [
+                'user_role' => $_POST['user_role'] ?? '',
+                'action_type' => $_POST['action_type'] ?? '',
+                'date_from' => $_POST['date_from'] ?? '',
+                'date_to' => $_POST['date_to'] ?? '',
+                'user_search' => $_POST['user_search'] ?? ''
+            ];
+            $limit = $_POST['limit'] ?? 100;
+            
+            error_log("Filters: " . json_encode($filters));
+            error_log("Limit: " . $limit);
+            
+            $logs = $adminManager->getLoginLogs($limit, $filters);
+            
+            error_log("Login logs result: " . ($logs !== false ? count($logs) . " logs" : "false"));
+            
+            if ($logs !== false) {
+                $response = ['success' => true, 'logs' => $logs];
+                error_log("Sending response with " . count($logs) . " logs");
+            } else {
+                $response = ['success' => false, 'error' => 'Failed to retrieve logs'];
+                error_log("Login logs query failed");
+            }
+            
+            echo json_encode($response);
+            exit();
+            
+        case 'get_login_statistics':
+            $days = $_POST['days'] ?? 30;
+            $stats = $adminManager->getLoginStatistics($days);
+            echo json_encode(['success' => true, 'statistics' => $stats]);
             exit();
     }
 }
@@ -342,47 +413,189 @@ $user = $adminManager->getCurrentUser();
 
     <!-- User Management Tab -->
     <div id="users-tab" class="tab-content hidden">
-        <div class="pt-24 pb-8">
-            <div class="mb-8">
-                <h1 class="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
-                <p class="text-gray-600">Manage system users, roles, and permissions.</p>
+        <div class="pt-20">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
+                    <p class="text-gray-600">Manage system users, roles, and permissions.</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="adminDashboard.showCreateUserModal()" class="btn btn-primary">
+                        <i data-lucide="user-plus" class="w-5 h-5 mr-2"></i>
+                        Add New User
+                    </button>
+                    <button onclick="adminDashboard.loadUsers()" class="btn btn-secondary">
+                        <i data-lucide="refresh-cw" class="w-5 h-5 mr-2"></i>
+                        Refresh
+                    </button>
+                </div>
             </div>
+            
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Students</p>
+                            <p class="text-2xl font-bold text-gray-900" id="totalStudents">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="graduation-cap" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Advisers</p>
+                            <p class="text-2xl font-bold text-gray-900" id="totalAdvisers">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="user-check" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Admins</p>
+                            <p class="text-2xl font-bold text-gray-900" id="totalAdmins">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="shield" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Active Today</p>
+                            <p class="text-2xl font-bold text-gray-900" id="activeToday">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="activity" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Search and Filter -->
+            <div class="glass-card p-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Search Users</label>
+                        <input type="text" id="userSearch" placeholder="Name, email, or ID..." class="form-input">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                        <select id="roleFilter" class="form-select">
+                            <option value="">All Roles</option>
+                            <option value="student">Students</option>
+                            <option value="adviser">Advisers</option>
+                            <option value="admin">Admins</option>
+                            <option value="super_admin">Super Admins</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                        <select id="departmentFilter" class="form-select">
+                            <option value="">All Departments</option>
+                            <option value="Computer Science">Computer Science</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Engineering">Engineering</option>
+                            <option value="Business">Business</option>
+                            <option value="Education">Education</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Program</label>
+                        <select id="programFilter" class="form-select">
+                            <option value="">All Programs</option>
+                            <option value="BS Computer Science">BS Computer Science</option>
+                            <option value="BS Information Technology">BS Information Technology</option>
+                            <option value="MS Computer Science">MS Computer Science</option>
+                            <option value="PhD Computer Science">PhD Computer Science</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end space-x-2">
+                        <button onclick="adminDashboard.filterUsers()" class="btn btn-primary flex-1">
+                            <i data-lucide="search" class="w-4 h-4 mr-2"></i>
+                            Filter
+                        </button>
+                        <button onclick="adminDashboard.clearUserFilters()" class="btn btn-secondary">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bulk Actions -->
+            <div class="glass-card p-4 mb-6" id="bulkActionsPanel" style="display: none;">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-700">
+                        <span id="selectedCount">0</span> user(s) selected
+                    </span>
+                    <div class="flex space-x-2">
+                        <button onclick="adminDashboard.bulkResetPasswords()" class="btn btn-warning btn-sm">
+                            <i data-lucide="key" class="w-4 h-4 mr-2"></i>
+                            Reset Passwords
+                        </button>
+                        <button onclick="adminDashboard.bulkDeleteUsers()" class="btn btn-danger btn-sm">
+                            <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
+                            Delete Selected
+                        </button>
+                        <button onclick="adminDashboard.clearSelection()" class="btn btn-secondary btn-sm">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Users Table -->
             <div class="glass-card">
                 <div class="p-6 border-b border-gray-200">
                     <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-semibold text-gray-900">System Users</h3>
-                        <button onclick="adminDashboard.showCreateUserModal()" class="btn btn-primary btn-sm">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
-                            Add User
-                        </button>
-                    </div>
-                    <!-- Search and Filters -->
-                    <div class="search-container mt-6">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <select id="roleFilter" class="search-input">
-                                <option value="">All Roles</option>
-                                <option value="student">Students</option>
-                                <option value="adviser">Advisers</option>
-                                <option value="admin">Admins</option>
-                            </select>
-                            <input type="text" id="searchFilter" placeholder="Search by name or email..." class="search-input">
-                            <select id="departmentFilter" class="search-input">
-                                <option value="">All Departments</option>
-                                <option value="Computer Science">Computer Science</option>
-                                <option value="Information Technology">Information Technology</option>
-                            </select>
+                        <h3 class="text-xl font-semibold text-gray-900">System Users</h3>
+                        <div class="flex items-center space-x-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="selectAllUsers" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-600">Select All</span>
+                            </label>
+                            <div class="text-sm text-gray-500">
+                                <span id="userCount">0</span> users
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="p-6">
-                    <div id="usersTable" class="overflow-x-auto">
-                        <!-- Users table will be loaded here via JavaScript -->
-                        <div class="text-center py-12 loading-indicator">
-                            <div class="loading-indicator">
-                                <i data-lucide="loader-2" class="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin"></i>
-                                <p class="text-gray-500">Loading users...</p>
-                            </div>
-                        </div>
+                    <div id="usersLoading" class="text-center py-8 hidden">
+                        <i data-lucide="loader-2" class="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin"></i>
+                        <p class="text-gray-500">Loading users...</p>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="modern-table" id="usersTable">
+                            <thead>
+                                <tr>
+                                    <th width="40px">
+                                        <input type="checkbox" id="selectAllUsersHeader" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    </th>
+                                    <th>User</th>
+                                    <th>Role</th>
+                                    <th>Department/Program</th>
+                                    <th>ID Number</th>
+                                    <th>Status</th>
+                                    <th>Last Login</th>
+                                    <th width="120px">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <!-- Users will be populated here -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -544,54 +757,221 @@ $user = $adminManager->getCurrentUser();
         <div class="pt-20">
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">Activity Logs</h1>
-                <p class="text-gray-600">Monitor system activity and admin actions.</p>
+                <p class="text-gray-600">Monitor system activity, login sessions, and admin actions.</p>
             </div>
             
-            <div class="glass-card">
-                <div class="p-6 border-b border-gray-200">
-                    <h3 class="text-xl font-semibold text-gray-900">Admin Activity Logs</h3>
+            <!-- Login Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Today's Logins</p>
+                            <p class="text-2xl font-bold text-gray-900" id="todayLogins">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="log-in" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="p-6">
-                    <div class="overflow-x-auto">
-                        <table class="modern-table">
-                            <thead>
-                                <tr>
-                                    <th>Admin</th>
-                                    <th>Action</th>
-                                    <th>Target</th>
-                                    <th>Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($recentLogs)): ?>
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Active Sessions</p>
+                            <p class="text-2xl font-bold text-gray-900" id="activeSessions">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="users" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Failed Attempts</p>
+                            <p class="text-2xl font-bold text-gray-900" id="failedAttempts">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="shield-alert" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Avg Session Duration</p>
+                            <p class="text-2xl font-bold text-gray-900" id="avgDuration">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="clock" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tabs for different log types -->
+            <div class="mb-6">
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8">
+                        <button class="log-tab-btn active" data-log-tab="login-logs">
+                            <i data-lucide="user-check" class="w-4 h-4 mr-2"></i>
+                            Login Logs
+                        </button>
+                        <button class="log-tab-btn" data-log-tab="admin-logs">
+                            <i data-lucide="shield" class="w-4 h-4 mr-2"></i>
+                            Admin Activity
+                        </button>
+                    </nav>
+                </div>
+            </div>
+            
+            <!-- Login Logs Tab -->
+            <div id="login-logs-content" class="log-tab-content">
+                <div class="glass-card">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-900">User Login/Logout Activity</h3>
+                            <div class="flex space-x-2">
+                                <button onclick="adminDashboard.loadLoginLogs()" class="btn btn-primary btn-sm">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+                                    Refresh
+                                </button>
+                                <button onclick="window.open('debug_admin_logs.php', '_blank')" class="btn btn-info btn-sm">
+                                    <i data-lucide="bug" class="w-4 h-4 mr-2"></i>
+                                    Debug
+                                </button>
+                                <button onclick="adminDashboard.exportLoginLogs()" class="btn btn-secondary btn-sm">
+                                    <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                                    Export
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Filters -->
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">User Role</label>
+                                <select id="loginLogRoleFilter" class="form-select">
+                                    <option value="">All Roles</option>
+                                    <option value="student">Students</option>
+                                    <option value="adviser">Advisers</option>
+                                    <option value="admin">Admins</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Action Type</label>
+                                <select id="loginLogActionFilter" class="form-select">
+                                    <option value="">All Actions</option>
+                                    <option value="login">Login</option>
+                                    <option value="logout">Logout</option>
+                                    <option value="login_failed">Failed Login</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Date From</label>
+                                <input type="date" id="loginLogDateFrom" class="form-input">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Date To</label>
+                                <input type="date" id="loginLogDateTo" class="form-input">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Search User</label>
+                                <input type="text" id="loginLogUserSearch" placeholder="Name or email..." class="form-input">
+                            </div>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <button onclick="adminDashboard.filterLoginLogs()" class="btn btn-primary btn-sm">
+                                <i data-lucide="filter" class="w-4 h-4 mr-2"></i>
+                                Apply Filters
+                            </button>
+                            <button onclick="adminDashboard.clearLoginLogFilters()" class="btn btn-secondary btn-sm">
+                                <i data-lucide="x" class="w-4 h-4 mr-2"></i>
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div id="loginLogsLoading" class="text-center py-8 hidden">
+                            <i data-lucide="loader-2" class="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin"></i>
+                            <p class="text-gray-500">Loading login logs...</p>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="modern-table" id="loginLogsTable">
+                                <thead>
                                     <tr>
-                                        <td colspan="4" class="text-center py-8">
-                                            <i data-lucide="file-text" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
-                                            <p class="text-gray-500">No activity logs available</p>
-                                        </td>
+                                        <th>User</th>
+                                        <th>Role</th>
+                                        <th>Action</th>
+                                        <th>IP Address</th>
+                                        <th>Browser</th>
+                                        <th>Login Time</th>
+                                        <th>Logout Time</th>
+                                        <th>Duration</th>
                                     </tr>
-                                <?php else: ?>
-                                    <?php foreach ($recentLogs as $log): ?>
-                                    <tr class="slide-in">
-                                        <td>
-                                            <div class="flex items-center">
-                                                <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold mr-3">
-                                                    <?php echo strtoupper(substr($log['admin_name'], 0, 1)); ?>
+                                </thead>
+                                <tbody id="loginLogsTableBody">
+                                    <!-- Login logs will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Admin Logs Tab -->
+            <div id="admin-logs-content" class="log-tab-content hidden">
+                <div class="glass-card">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-xl font-semibold text-gray-900">Admin Activity Logs</h3>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Admin</th>
+                                        <th>Action</th>
+                                        <th>Target</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($recentLogs)): ?>
+                                        <tr>
+                                            <td colspan="4" class="text-center py-8">
+                                                <i data-lucide="file-text" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+                                                <p class="text-gray-500">No activity logs available</p>
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($recentLogs as $log): ?>
+                                        <tr class="slide-in">
+                                            <td>
+                                                <div class="flex items-center">
+                                                    <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold mr-3">
+                                                        <?php echo strtoupper(substr($log['admin_name'], 0, 1)); ?>
+                                                    </div>
+                                                    <span class="font-medium"><?php echo htmlspecialchars($log['admin_name']); ?></span>
                                                 </div>
-                                                <span class="font-medium"><?php echo htmlspecialchars($log['admin_name']); ?></span>
-                                            </div>
-                                        </td>
-                                        <td><?php echo htmlspecialchars($log['action']); ?></td>
-                                        <td>
-                                            <span class="badge badge-info"><?php echo htmlspecialchars($log['target_type']); ?></span>
-                                        </td>
-                                        <td><?php echo date('M j, Y g:i A', strtotime($log['created_at'])); ?></td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
+                                            </td>
+                                            <td><?php echo htmlspecialchars($log['action']); ?></td>
+                                            <td>
+                                                <span class="badge badge-info"><?php echo htmlspecialchars($log['target_type']); ?></span>
+                                            </td>
+                                            <td><?php echo date('M j, Y g:i A', strtotime($log['created_at'])); ?></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -599,8 +979,333 @@ $user = $adminManager->getCurrentUser();
     </div>
 </div>
 
-<!-- Modals (Create User, Create Announcement, etc.) -->
-<!-- These will be added in the next step -->
+<!-- User Management Modals -->
+
+<!-- Create User Modal -->
+<div id="createUserModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900">Create New User</h3>
+                    <button onclick="adminDashboard.closeModal('createUserModal')" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="createUserForm" class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Basic Information -->
+                    <div class="md:col-span-2">
+                        <h4 class="text-md font-semibold text-gray-800 mb-4">Basic Information</h4>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                        <input type="text" name="full_name" required class="form-input">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                        <input type="email" name="email" required class="form-input">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Role *</label>
+                        <select name="role" id="createUserRole" required class="form-select">
+                            <option value="">Select Role</option>
+                            <option value="student">Student</option>
+                            <option value="adviser">Adviser</option>
+                            <option value="admin">Admin</option>
+                            <option value="super_admin">Super Admin</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" name="password" placeholder="Leave blank for auto-generated" class="form-input">
+                        <p class="text-xs text-gray-500 mt-1">Leave blank to auto-generate a secure password</p>
+                    </div>
+                    
+                    <!-- Role-specific fields -->
+                    <div class="md:col-span-2">
+                        <h4 class="text-md font-semibold text-gray-800 mb-4">Role-specific Information</h4>
+                    </div>
+                    
+                    <!-- Student fields -->
+                    <div id="studentFields" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6" style="display: none;">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Student ID</label>
+                            <input type="text" name="student_id" class="form-input">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Program</label>
+                            <select name="program" class="form-select">
+                                <option value="">Select Program</option>
+                                <option value="BS Computer Science">BS Computer Science</option>
+                                <option value="BS Information Technology">BS Information Technology</option>
+                                <option value="BS Engineering">BS Engineering</option>
+                                <option value="MS Computer Science">MS Computer Science</option>
+                                <option value="PhD Computer Science">PhD Computer Science</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                            <select name="department" class="form-select">
+                                <option value="">Select Department</option>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Engineering">Engineering</option>
+                                <option value="Business">Business</option>
+                                <option value="Education">Education</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Adviser fields -->
+                    <div id="adviserFields" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6" style="display: none;">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Faculty ID</label>
+                            <input type="text" name="faculty_id" class="form-input">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                            <select name="adviser_department" class="form-select">
+                                <option value="">Select Department</option>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Engineering">Engineering</option>
+                                <option value="Business">Business</option>
+                                <option value="Education">Education</option>
+                            </select>
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Specialization</label>
+                            <input type="text" name="specialization" placeholder="e.g., Machine Learning, Software Engineering" class="form-input">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-8">
+                    <button type="button" onclick="adminDashboard.closeModal('createUserModal')" class="btn btn-secondary">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="user-plus" class="w-4 h-4 mr-2"></i>
+                        Create User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editUserModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900">Edit User</h3>
+                    <button onclick="adminDashboard.closeModal('editUserModal')" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="editUserForm" class="p-6">
+                <input type="hidden" name="user_id" id="editUserId">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Basic Information -->
+                    <div class="md:col-span-2">
+                        <h4 class="text-md font-semibold text-gray-800 mb-4">Basic Information</h4>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                        <input type="text" name="full_name" id="editFullName" required class="form-input">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                        <input type="email" name="email" id="editEmail" required class="form-input">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Role *</label>
+                        <select name="role" id="editUserRole" required class="form-select">
+                            <option value="student">Student</option>
+                            <option value="adviser">Adviser</option>
+                            <option value="admin">Admin</option>
+                            <option value="super_admin">Super Admin</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Role-specific fields -->
+                    <div class="md:col-span-2">
+                        <h4 class="text-md font-semibold text-gray-800 mb-4">Role-specific Information</h4>
+                    </div>
+                    
+                    <!-- Student fields -->
+                    <div id="editStudentFields" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6" style="display: none;">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Student ID</label>
+                            <input type="text" name="student_id" id="editStudentId" class="form-input">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Program</label>
+                            <select name="program" id="editProgram" class="form-select">
+                                <option value="">Select Program</option>
+                                <option value="BS Computer Science">BS Computer Science</option>
+                                <option value="BS Information Technology">BS Information Technology</option>
+                                <option value="BS Engineering">BS Engineering</option>
+                                <option value="MS Computer Science">MS Computer Science</option>
+                                <option value="PhD Computer Science">PhD Computer Science</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                            <select name="department" id="editDepartment" class="form-select">
+                                <option value="">Select Department</option>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Engineering">Engineering</option>
+                                <option value="Business">Business</option>
+                                <option value="Education">Education</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Adviser fields -->
+                    <div id="editAdviserFields" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6" style="display: none;">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Faculty ID</label>
+                            <input type="text" name="faculty_id" id="editFacultyId" class="form-input">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                            <select name="adviser_department" id="editAdviserDepartment" class="form-select">
+                                <option value="">Select Department</option>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Engineering">Engineering</option>
+                                <option value="Business">Business</option>
+                                <option value="Education">Education</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-8">
+                    <button type="button" onclick="adminDashboard.closeModal('editUserModal')" class="btn btn-secondary">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                        Update User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Password Display Modal -->
+<div id="passwordModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900">User Password</h3>
+                    <button onclick="adminDashboard.closeModal('passwordModal')" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="key" class="w-8 h-8 text-green-600"></i>
+                    </div>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Password Generated</h4>
+                    <p class="text-gray-600">Please save this password securely</p>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600 mb-1">User:</p>
+                            <p class="font-semibold" id="passwordUserName">-</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600 mb-1">Email:</p>
+                            <p class="font-semibold" id="passwordUserEmail">-</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-gray-600 mb-2">Password:</p>
+                    <div class="flex items-center justify-between">
+                        <code class="text-lg font-mono text-blue-900" id="generatedPassword">-</code>
+                        <button onclick="adminDashboard.copyPassword()" class="btn btn-secondary btn-sm">
+                            <i data-lucide="copy" class="w-4 h-4 mr-1"></i>
+                            Copy
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end">
+                    <button onclick="adminDashboard.closeModal('passwordModal')" class="btn btn-primary">
+                        Got it
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteUserModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="trash-2" class="w-8 h-8 text-red-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete User</h3>
+                    <p class="text-gray-600">Are you sure you want to delete this user? This action cannot be undone.</p>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <p class="font-semibold" id="deleteUserName">-</p>
+                    <p class="text-sm text-gray-600" id="deleteUserEmail">-</p>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button onclick="adminDashboard.closeModal('deleteUserModal')" class="btn btn-secondary">
+                        Cancel
+                    </button>
+                    <button onclick="adminDashboard.confirmDeleteUser()" class="btn btn-danger">
+                        <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
+                        Delete User
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- JavaScript -->
 <script>

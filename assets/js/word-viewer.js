@@ -5,17 +5,23 @@
 
 class WordViewer {
     constructor(containerId, options = {}) {
+        this.containerId = containerId;
         this.container = document.getElementById(containerId);
+        if (!this.container) {
+            console.error(`Container with ID '${containerId}' not found`);
+            return;
+        }
+        
         this.options = {
             showComments: true,
             showToolbar: true,
-            allowZoom: true,
+            allowZoom: false,
             ...options
         };
         
-        this.zoomLevel = 100;
         this.currentFile = null;
-        this.content = [];
+        this.content = null;
+        this.zoomLevel = 100;
         this.comments = [];
         
         this.init();
@@ -27,14 +33,22 @@ class WordViewer {
     }
     
     createViewer() {
+        console.log(`[WordViewer] createViewer() called for container: ${this.containerId}`);
+        console.log(`[WordViewer] Container element:`, this.container);
+        
         this.container.innerHTML = `
             <div class="word-viewer">
                 <div class="word-document">
                     <div class="word-page">
-                        <div class="word-content" id="word-content">
+                        <div class="word-content" id="${this.containerId}-content">
                             <div class="word-loading">
                                 <div class="spinner"></div>
-                                Loading document...
+                                <p>Loading document...</p>
+                                <div class="loading-steps" style="margin-top: 12px; font-size: 12px; color: #9ca3af;">
+                                    <div>Fetching document content</div>
+                                    <div style="margin-top: 4px;">Processing Word document structure</div>
+                                    <div style="margin-top: 4px;">Preparing for display</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -42,6 +56,12 @@ class WordViewer {
                 ${this.options.allowZoom ? this.createZoomControls() : ''}
             </div>
         `;
+        
+        console.log(`[WordViewer] Viewer HTML created, content div ID: ${this.containerId}-content`);
+        
+        // Verify the content div was created
+        const contentDiv = document.getElementById(`${this.containerId}-content`);
+        console.log(`[WordViewer] Content div verification:`, contentDiv);
         
         // Initialize Lucide icons
         if (typeof lucide !== 'undefined') {
@@ -96,34 +116,98 @@ class WordViewer {
     }
     
     async loadDocument(fileId) {
-        try {
-            this.showLoading();
-            
-            const response = await fetch(`api/extract_document_content.php?file_id=${fileId}`);
-            const data = await response.json();
-            
-            if (data.success) {
-                this.currentFile = data.file_info;
-                this.content = data.content;
+        const maxRetries = 3;
+        let attempt = 0;
+        
+        const attemptLoad = async () => {
+            attempt++;
+            try {
+                console.log(`[WordViewer] Attempt ${attempt}/${maxRetries} - Starting load for file ID: ${fileId} in container: ${this.containerId}`);
+                console.log(`[WordViewer] Container element:`, this.container);
                 
-                // Check if this is a server limitation response
-                if (data.server_limitation) {
-                    this.displayServerLimitationMessage();
-                } else {
-                    this.displayDocument();
+                this.showLoading();
+                console.log(`[WordViewer] Loading state displayed`);
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => {
+                    console.log(`[WordViewer] Request timed out after 15 seconds (attempt ${attempt})`);
+                    controller.abort();
+                }, 15000); // Reduced timeout to 15 seconds
+                
+                console.log(`[WordViewer] Starting fetch request to: api/extract_document_content.php?file_id=${fileId}`);
+                
+                const response = await fetch(`api/extract_document_content.php?file_id=${fileId}`, {
+                    signal: controller.signal,
+                    credentials: 'same-origin',
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                console.log(`[WordViewer] Fetch completed, response status: ${response.status}`);
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                this.updateToolbar();
-            } else {
-                this.showError(data.error || 'Failed to load document');
+                
+                console.log(`[WordViewer] Parsing JSON response...`);
+                const data = await response.json();
+                console.log(`[WordViewer] Response data:`, data);
+                
+                if (data.success) {
+                    console.log(`[WordViewer] Setting file info and content...`);
+                    this.currentFile = data.file_info;
+                    this.content = data.content;
+                    
+                    // Check if this is a server limitation response
+                    if (data.server_limitation) {
+                        console.log(`[WordViewer] Server limitation detected, showing limitation message`);
+                        this.displayServerLimitationMessage();
+                    } else {
+                        console.log(`[WordViewer] Document content loaded successfully, ${this.content.length} items`);
+                        this.displayDocument();
+                    }
+                    
+                    console.log(`[WordViewer] Updating toolbar...`);
+                    this.updateToolbar();
+                    console.log(`[WordViewer] Load process completed successfully`);
+                    return true; // Success
+                } else {
+                    console.error(`[WordViewer] Document load failed:`, data.error);
+                    throw new Error(data.error || 'Failed to load document');
+                }
+            } catch (error) {
+                console.error(`[WordViewer] Error in attempt ${attempt}:`, error);
+                
+                if (error.name === 'AbortError') {
+                    console.log(`[WordViewer] Request was aborted due to timeout (attempt ${attempt})`);
+                    if (attempt < maxRetries) {
+                        console.log(`[WordViewer] Retrying in 2 seconds...`);
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        return attemptLoad(); // Retry
+                    } else {
+                        this.showError('Document loading timed out after multiple attempts. Please check your network connection and try again.');
+                    }
+                } else {
+                    if (attempt < maxRetries) {
+                        console.log(`[WordViewer] Retrying in 1 second...`);
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        return attemptLoad(); // Retry
+                    } else {
+                        this.showError('Error loading document: ' + error.message);
+                    }
+                }
+                return false; // Failure
             }
-        } catch (error) {
-            console.error('Error loading document:', error);
-            this.showError('Error loading document: ' + error.message);
-        }
+        };
+        
+        return attemptLoad();
     }
     
     displayServerLimitationMessage() {
-        const contentDiv = document.getElementById('word-content');
+        const contentDiv = document.getElementById(`${this.containerId}-content`);
         
         contentDiv.innerHTML = `
             <div class="word-server-limitation">
@@ -201,22 +285,96 @@ class WordViewer {
     }
     
     displayDocument() {
-        const contentDiv = document.getElementById('word-content');
+        console.log(`[WordViewer] displayDocument() called for container: ${this.containerId}`);
+        const contentDiv = document.getElementById(`${this.containerId}-content`);
         
-        if (!this.content || this.content.length === 0) {
-            contentDiv.innerHTML = `
-                <div class="word-error">
-                    <i data-lucide="file-x" class="word-error-icon"></i>
-                    <h3>No Content Available</h3>
-                    <p>No readable content could be extracted from this document.</p>
-                    <p class="text-sm mt-2">Try downloading the document to view it in its original format.</p>
-                </div>
-            `;
-            lucide.createIcons();
+        if (!contentDiv) {
+            console.error(`[WordViewer] Content div not found: ${this.containerId}-content`);
+            console.log(`[WordViewer] Available elements:`, document.querySelectorAll('[id*="content"]'));
+            // Try alternative content div names
+            const altContentDiv = document.getElementById(this.containerId);
+            if (altContentDiv) {
+                console.log(`[WordViewer] Using alternative container directly`);
+                altContentDiv.innerHTML = this.createDocumentHTML();
+                this.bindParagraphEvents();
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+                return;
+            }
             return;
         }
         
+        try {
+            console.log(`[WordViewer] Content array:`, this.content);
+            
+            if (!this.content || this.content.length === 0) {
+                console.log(`[WordViewer] No content available, showing empty state`);
+                contentDiv.innerHTML = `
+                    <div class="word-error">
+                        <i data-lucide="file-x" class="word-error-icon"></i>
+                        <h3>No Content Available</h3>
+                        <p>No readable content could be extracted from this document.</p>
+                        <p class="text-sm mt-2">Try downloading the document to view it in its original format.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+            
+            const html = this.createDocumentHTML();
+            console.log(`[WordViewer] Generated HTML length:`, html.length);
+            
+            if (!html.trim()) {
+                console.log(`[WordViewer] Empty HTML generated, showing error`);
+                contentDiv.innerHTML = `
+                    <div class="word-error">
+                        <i data-lucide="file-x" class="word-error-icon"></i>
+                        <h3>Document Processing Issue</h3>
+                        <p>The document content could not be properly processed for display.</p>
+                        <p class="text-sm mt-2">Please try downloading the document to view it in its original format.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+            
+            console.log(`[WordViewer] Setting innerHTML...`);
+            contentDiv.innerHTML = html;
+            
+            console.log(`[WordViewer] Binding paragraph events...`);
+            this.bindParagraphEvents();
+            
+            console.log(`[WordViewer] Initializing Lucide icons...`);
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+            
+            console.log(`[WordViewer] Auto-scrolling to top...`);
+            const wordPage = document.querySelector('.word-page');
+            if (wordPage) {
+                wordPage.scrollTop = 0;
+            }
+            
+            console.log(`[WordViewer] Document content displayed successfully`);
+        } catch (error) {
+            console.error(`[WordViewer] Error in displayDocument:`, error);
+            contentDiv.innerHTML = `
+                <div class="word-error">
+                    <i data-lucide="alert-triangle" class="word-error-icon"></i>
+                    <h3>Display Error</h3>
+                    <p>Error displaying document: ${error.message}</p>
+                    <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Reload Page</button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+    }
+    
+    createDocumentHTML() {
         let html = '';
+        console.log(`[WordViewer] Creating HTML from ${this.content.length} content items`);
+        
         this.content.forEach((item, index) => {
             const paragraphId = `para_${index + 1}`;
             let cssClass = 'word-paragraph';
@@ -224,6 +382,7 @@ class WordViewer {
             
             // Skip empty or very short content that might be artifacts
             if (!content || content.trim().length < 3) {
+                console.log(`[WordViewer] Skipping empty content at index ${index}`);
                 return;
             }
             
@@ -250,35 +409,8 @@ class WordViewer {
             `;
         });
         
-        // If we still have no content after filtering, show error
-        if (!html.trim()) {
-            contentDiv.innerHTML = `
-                <div class="word-error">
-                    <i data-lucide="file-x" class="word-error-icon"></i>
-                    <h3>Document Processing Issue</h3>
-                    <p>The document content could not be properly processed for display.</p>
-                    <p class="text-sm mt-2">Please try downloading the document to view it in its original format.</p>
-                </div>
-            `;
-            lucide.createIcons();
-            return;
-        }
-        
-        contentDiv.innerHTML = html;
-        
-        // Add paragraph click handlers for commenting
-        this.bindParagraphEvents();
-        
-        // Initialize Lucide icons
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-        
-        // Auto-scroll to top
-        const wordPage = document.querySelector('.word-page');
-        if (wordPage) {
-            wordPage.scrollTop = 0;
-        }
+        console.log(`[WordViewer] Generated HTML with ${html.split('<div class="word-paragraph').length - 1} paragraphs`);
+        return html;
     }
     
     formatParagraphContent(content) {
@@ -638,17 +770,31 @@ class WordViewer {
     }
     
     showLoading() {
-        const contentDiv = document.getElementById('word-content');
+        console.log(`[WordViewer] showLoading() called for container: ${this.containerId}`);
+        const contentDiv = document.getElementById(`${this.containerId}-content`);
+        
+        if (!contentDiv) {
+            console.error(`[WordViewer] Content div not found: ${this.containerId}-content`);
+            return;
+        }
+        
+        console.log(`[WordViewer] Setting loading HTML in content div`);
         contentDiv.innerHTML = `
             <div class="word-loading">
                 <div class="spinner"></div>
-                Loading document...
+                <p>Loading document...</p>
+                <div class="loading-steps" style="margin-top: 12px; font-size: 12px; color: #9ca3af;">
+                    <div>Fetching document content</div>
+                    <div style="margin-top: 4px;">Processing Word document structure</div>
+                    <div style="margin-top: 4px;">Preparing for display</div>
+                </div>
             </div>
         `;
+        console.log(`[WordViewer] Loading HTML set successfully`);
     }
     
     showError(message) {
-        const contentDiv = document.getElementById('word-content');
+        const contentDiv = document.getElementById(`${this.containerId}-content`);
         contentDiv.innerHTML = `
             <div class="word-error">
                 <i data-lucide="alert-triangle" class="word-error-icon"></i>
@@ -751,6 +897,75 @@ class WordViewer {
         }
     }
 }
+
+// Global debug and manual reload functions
+window.debugWordViewer = function(containerId) {
+    console.log('[Debug] === WORD VIEWER DEBUG ===');
+    console.log('[Debug] Container ID:', containerId || 'not specified');
+    
+    if (containerId) {
+        const container = document.getElementById(containerId);
+        console.log('[Debug] Container element:', container);
+        
+        if (container) {
+            const contentDiv = document.getElementById(containerId + '-content');
+            console.log('[Debug] Content div:', contentDiv);
+            console.log('[Debug] Content HTML:', contentDiv ? contentDiv.innerHTML : 'not found');
+        }
+    }
+    
+    console.log('[Debug] Available global variables:');
+    console.log('[Debug] - window.currentFileId:', window.currentFileId);
+    console.log('[Debug] - window.currentChapterId:', window.currentChapterId);
+    console.log('[Debug] - fullscreenWordViewer:', typeof fullscreenWordViewer !== 'undefined' ? fullscreenWordViewer : 'not defined');
+    console.log('[Debug] - wordViewer:', typeof wordViewer !== 'undefined' ? wordViewer : 'not defined');
+};
+
+window.forceReloadDocument = function(fileId, containerId) {
+    console.log('[Force Reload] Starting manual reload...');
+    console.log('[Force Reload] File ID:', fileId);
+    console.log('[Force Reload] Container ID:', containerId);
+    
+    if (!fileId) {
+        fileId = window.currentFileId;
+        console.log('[Force Reload] Using global file ID:', fileId);
+    }
+    
+    if (!fileId) {
+        console.error('[Force Reload] No file ID available');
+        alert('No file ID available. Please select a chapter first.');
+        return;
+    }
+    
+    if (!containerId) {
+        containerId = 'fullscreen-document-content';
+        console.log('[Force Reload] Using default container ID:', containerId);
+    }
+    
+    try {
+        const viewer = new WordViewer(containerId, {
+            showComments: true,
+            showToolbar: false,
+            allowZoom: true
+        });
+        
+        console.log('[Force Reload] Created viewer:', viewer);
+        
+        viewer.loadDocument(fileId)
+            .then(() => {
+                console.log('[Force Reload] Document loaded successfully');
+                alert('Document reloaded successfully!');
+            })
+            .catch(error => {
+                console.error('[Force Reload] Error loading document:', error);
+                alert('Error reloading document: ' + error.message);
+            });
+            
+    } catch (error) {
+        console.error('[Force Reload] Error creating viewer:', error);
+        alert('Error creating viewer: ' + error.message);
+    }
+};
 
 // Export for use in other scripts
 window.WordViewer = WordViewer; 

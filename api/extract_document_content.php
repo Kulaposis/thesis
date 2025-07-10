@@ -1,18 +1,57 @@
 <?php
+// Increase memory limit and execution time for document processing
+ini_set('memory_limit', '256M');
+ini_set('max_execution_time', 60);
+
 session_start();
 require_once '../config/database.php';
 require_once '../includes/auth.php';
 require_once '../includes/thesis_functions.php';
 
-// Require login
-$auth = new Auth();
-$auth->requireLogin();
+// Enhanced error reporting
+error_reporting(E_ALL);
 
-// Get current user
-$user = $auth->getCurrentUser();
-$thesisManager = new ThesisManager();
-
+// Set proper headers for JSON response
 header('Content-Type: application/json');
+header('Cache-Control: no-cache, must-revalidate');
+header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+
+// Function to send JSON response and exit
+function sendResponse($data) {
+    echo json_encode($data);
+    exit;
+}
+
+// Function to log errors
+function logError($message) {
+    error_log("[Document Extractor] " . $message);
+}
+
+try {
+    // Require login with timeout check
+    $auth = new Auth();
+    
+    // Check if session is still valid
+    if (!isset($_SESSION['user_id'])) {
+        logError("Session expired or user not logged in");
+        sendResponse(['success' => false, 'error' => 'Session expired. Please refresh the page and login again.']);
+    }
+    
+    $auth->requireLogin();
+
+    // Get current user
+    $user = $auth->getCurrentUser();
+    if (!$user) {
+        logError("Failed to get current user");
+        sendResponse(['success' => false, 'error' => 'Failed to verify user session. Please refresh and try again.']);
+    }
+    
+    $thesisManager = new ThesisManager();
+
+} catch (Exception $e) {
+    logError("Auth error: " . $e->getMessage());
+    sendResponse(['success' => false, 'error' => 'Authentication error. Please refresh the page and try again.']);
+}
 
 function extractWordContent($filePath) {
     $content = '';
@@ -156,8 +195,7 @@ function extractWordContent($filePath) {
 
 // Check if file ID is provided
 if (!isset($_GET['file_id']) || empty($_GET['file_id'])) {
-    echo json_encode(['success' => false, 'error' => 'File ID is required']);
-    exit;
+    sendResponse(['success' => false, 'error' => 'File ID is required']);
 }
 
 $file_id = intval($_GET['file_id']);
@@ -178,8 +216,7 @@ try {
     $file = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$file) {
-        echo json_encode(['success' => false, 'error' => 'File not found']);
-        exit;
+        sendResponse(['success' => false, 'error' => 'File not found']);
     }
     
     // Check permissions
@@ -199,14 +236,12 @@ try {
     $is_admin = ($user['role'] == 'admin');
     
     if (!$is_owner && !$is_adviser && !$is_admin) {
-        echo json_encode(['success' => false, 'error' => 'You do not have permission to access this file']);
-        exit;
+        sendResponse(['success' => false, 'error' => 'You do not have permission to access this file']);
     }
     
     // Check if file exists
     if (!file_exists($file['file_path'])) {
-        echo json_encode(['success' => false, 'error' => 'File not found on server']);
-        exit;
+        sendResponse(['success' => false, 'error' => 'File not found on server']);
     }
     
     // Check if it's a Word document
@@ -228,15 +263,14 @@ try {
     error_log("Word Viewer Debug - MIME Type Match: " . ($isWordByMimeType ? 'true' : 'false') . ", Extension Match: " . ($isWordByExtension ? 'true' : 'false'));
     
     if (!$isWordByMimeType && !$isWordByExtension) {
-        echo json_encode(['success' => false, 'error' => 'This file is not a Word document. Detected type: ' . $fileType]);
-        exit;
+        sendResponse(['success' => false, 'error' => 'This file is not a Word document. Detected type: ' . $fileType]);
     }
     
     // Check if ZipArchive is available for DOCX files
     $fileExtension = strtolower(pathinfo($file['original_filename'], PATHINFO_EXTENSION));
     if ($fileExtension === 'docx' && !class_exists('ZipArchive')) {
         // Provide a fallback response when ZipArchive is not available
-        echo json_encode([
+        sendResponse([
             'success' => true,
             'file_info' => [
                 'id' => $file['id'],
@@ -273,14 +307,13 @@ try {
             'raw_text' => 'Word document content extraction not available due to missing server extension.',
             'server_limitation' => true
         ]);
-        exit;
     }
     
     // Extract content
     $result = extractWordContent($file['file_path']);
     
     if ($result['success']) {
-        echo json_encode([
+        sendResponse([
             'success' => true,
             'file_info' => [
                 'id' => $file['id'],
@@ -292,10 +325,14 @@ try {
             'raw_text' => $result['raw_text']
         ]);
     } else {
-        echo json_encode($result);
+        sendResponse($result);
     }
     
 } catch (PDOException $e) {
-    echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    logError("Database error: " . $e->getMessage());
+    sendResponse(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+} catch (Exception $e) {
+    logError("General error: " . $e->getMessage());
+    sendResponse(['success' => false, 'error' => 'Error processing document: ' . $e->getMessage()]);
 }
 ?> 

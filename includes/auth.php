@@ -35,6 +35,9 @@ class Auth {
                     $_SESSION['department'] = $user['department'];
                     $_SESSION['logged_in'] = true;
                     
+                    // Log successful login
+                    $this->logUserActivity($user['id'], $user['role'], 'login');
+                    
                     // Get the role from the database
                     $userRole = $user['role'];
                     
@@ -52,9 +55,13 @@ class Auth {
                         'redirect' => $redirect
                     ];
                 } else {
+                    // Log failed login attempt
+                    $this->logUserActivity($user['id'], $user['role'], 'login_failed');
                     return ['success' => false, 'message' => 'Invalid password'];
                 }
             } else {
+                // Log failed login attempt for unknown email
+                $this->logUserActivity(null, 'unknown', 'login_failed', ['email' => $email]);
                 return ['success' => false, 'message' => 'User not found'];
             }
         } catch (PDOException $e) {
@@ -121,6 +128,11 @@ class Auth {
     }
 
     public function logout() {
+        // Log the logout before destroying session
+        if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
+            $this->logUserActivity($_SESSION['user_id'], $_SESSION['role'], 'logout');
+        }
+        
         session_destroy();
         header("Location: login.php");
         exit();
@@ -159,6 +171,74 @@ class Auth {
             ];
         }
         return null;
+    }
+
+    private function logUserActivity($userId, $role, $actionType, $additionalData = []) {
+        try {
+            // Include the AdminManager class for logging
+            require_once __DIR__ . '/admin_functions.php';
+            $adminManager = new AdminManager();
+            
+            if ($userId) {
+                $adminManager->logUserLogin($userId, $role, $actionType, $additionalData);
+            } else {
+                // For failed login attempts with unknown users, log with a special entry
+                $ipAddress = $this->getUserIpAddress();
+                $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+                $browserInfo = $this->parseBrowserInfo($userAgent);
+                
+                $query = "INSERT INTO login_logs (user_id, user_role, action_type, ip_address, user_agent, browser_info, login_time) 
+                         VALUES (NULL, :user_role, :action_type, :ip_address, :user_agent, :browser_info, :login_time)";
+                
+                $stmt = $this->db->prepare($query);
+                $stmt->bindParam(':user_role', $role);
+                $stmt->bindParam(':action_type', $actionType);
+                $stmt->bindParam(':ip_address', $ipAddress);
+                $stmt->bindParam(':user_agent', $userAgent);
+                $stmt->bindParam(':browser_info', $browserInfo);
+                $stmt->bindParam(':login_time', date('Y-m-d H:i:s'));
+                $stmt->execute();
+            }
+        } catch (Exception $e) {
+            error_log("Error logging user activity: " . $e->getMessage());
+        }
+    }
+
+    private function getUserIpAddress() {
+        $ipKeys = ['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED', 
+                   'HTTP_X_CLUSTER_CLIENT_IP', 'HTTP_FORWARDED_FOR', 'HTTP_FORWARDED', 'REMOTE_ADDR'];
+        
+        foreach ($ipKeys as $key) {
+            if (array_key_exists($key, $_SERVER) === true) {
+                foreach (explode(',', $_SERVER[$key]) as $ip) {
+                    $ip = trim($ip);
+                    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                        return $ip;
+                    }
+                }
+            }
+        }
+        
+        return $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+    }
+
+    private function parseBrowserInfo($userAgent) {
+        $browsers = [
+            'Chrome' => '/Chrome\/([0-9.]+)/',
+            'Firefox' => '/Firefox\/([0-9.]+)/',
+            'Safari' => '/Safari\/([0-9.]+)/',
+            'Edge' => '/Edge\/([0-9.]+)/',
+            'Opera' => '/Opera\/([0-9.]+)/',
+            'Internet Explorer' => '/MSIE ([0-9.]+)/'
+        ];
+        
+        foreach ($browsers as $browser => $pattern) {
+            if (preg_match($pattern, $userAgent, $matches)) {
+                return $browser . ' ' . $matches[1];
+            }
+        }
+        
+        return 'Unknown Browser';
     }
 }
 
@@ -210,5 +290,41 @@ function getUserById($conn, $userId) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
     return $user ?: null;
+}
+
+/**
+ * Check if user is logged in
+ * 
+ * @return bool True if user is logged in
+ */
+function isLoggedIn() {
+    return isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
+}
+
+/**
+ * Check if current user is admin
+ * 
+ * @return bool True if user is admin
+ */
+function isAdmin() {
+    if (!isLoggedIn()) {
+        return false;
+    }
+    
+    $role = $_SESSION['role'] ?? '';
+    return in_array($role, ['admin', 'super_admin']);
+}
+
+/**
+ * Check if current user is super admin
+ * 
+ * @return bool True if user is super admin
+ */
+function isSuperAdmin() {
+    if (!isLoggedIn()) {
+        return false;
+    }
+    
+    return ($_SESSION['role'] ?? '') === 'super_admin';
 }
 ?> 

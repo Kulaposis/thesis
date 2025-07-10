@@ -614,10 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Expose to global scope for manual usage
   window.modernUI = ui;
   
-  // Show welcome notification
-  setTimeout(() => {
-    ui.showNotification('Welcome to the enhanced UI! 🎉', 'success', 3000);
-  }, 1000);
+
 });
 
 // Additional CSS for animations and effects
