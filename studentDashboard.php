@@ -31,6 +31,8 @@ if ($thesis) {
   <title>Student Thesis Dashboard</title>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Modern UI Framework -->
+  <link rel="stylesheet" href="assets/css/modern-ui.css">
   <!-- Word Viewer Styles and Scripts -->
   <link rel="stylesheet" href="assets/css/word-viewer.css">
   <script src="assets/js/word-viewer.js"></script>
@@ -50,10 +52,10 @@ if ($thesis) {
     }
   </style>
 </head>
-<body class="bg-gray-50 font-sans text-sm antialiased">
+<body class="bg-gray-25 font-sans text-sm antialiased">
   <div class="flex min-h-screen">
     <!-- Sidebar -->
-    <aside class="w-64 bg-white shadow-md p-4 hidden md:block">
+    <aside class="sidebar w-64 p-6 hidden md:block">
       <div class="flex items-center mb-6">
         <div class="bg-blue-100 p-2 rounded-lg mr-3">
           <i data-lucide="book-open" class="w-6 h-6 text-blue-600"></i>
@@ -62,20 +64,20 @@ if ($thesis) {
           THESIS/CAPSTONE<br>STUDENT PORTAL
         </h1>
       </div>
-      <nav class="space-y-1 text-gray-700 font-medium">
-        <a href="#" data-tab="dashboard" class="flex items-center gap-3 p-3 sidebar-item active-tab hover:bg-blue-50 rounded-lg">
+      <nav class="space-y-2">
+        <a href="#" data-tab="dashboard" class="nav-link sidebar-item active">
           <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
         </a>
-        <a href="#" data-tab="thesis" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="thesis" class="nav-link sidebar-item">
           <i data-lucide="file-text" class="w-5 h-5"></i> My Thesis
         </a>
-        <a href="#" data-tab="feedback" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="feedback" class="nav-link sidebar-item">
           <i data-lucide="message-circle" class="w-5 h-5"></i> Adviser Feedback
         </a>
-        <a href="#" data-tab="review-feedback" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="review-feedback" class="nav-link sidebar-item">
           <i data-lucide="eye" class="w-5 h-5"></i> Document Review
         </a>
-        <a href="#" data-tab="timeline" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="timeline" class="nav-link sidebar-item">
           <i data-lucide="calendar" class="w-5 h-5"></i> Timeline
         </a>
       </nav>
@@ -1186,5 +1188,8 @@ if ($thesis) {
       xhr.send(formData);
     });
   </script>
+
+  <!-- Modern UI Framework -->
+  <script src="assets/js/modern-ui.js"></script>
 </body>
 </html> 

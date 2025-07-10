@@ -33,10 +33,12 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Thesis/Capstone Management Dashboard</title>
+  <title>Thesis Management Dashboard - Adviser</title>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Modern UI Framework -->
+  <link rel="stylesheet" href="assets/css/modern-ui.css">
   <!-- Word Viewer Styles and Scripts -->
   <link rel="stylesheet" href="assets/css/word-viewer.css">
   <script src="assets/js/word-viewer.js"></script>
@@ -133,13 +135,82 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       0%, 100% { box-shadow: none; }
       50% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); }
     }
+    
+    /* Responsive Document Review Styles */
+    .sidebar-mobile-open {
+      overflow: hidden;
+    }
+    
+    .sidebar-mobile-open::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 25;
+    }
+    
+    @media (max-width: 768px) {
+      #document-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 30;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+      
+      #document-sidebar.sidebar-open {
+        transform: translateX(0);
+      }
+      
+      .document-review-container {
+        flex-direction: column;
+      }
+      
+      #right-panels-container .max-w-md {
+        max-width: 100%;
+      }
+      
+      #panel-triggers {
+        bottom: 4rem;
+        right: 1rem;
+      }
+      
+      /* Ensure document viewer takes full width on mobile */
+      #document-review-content .flex {
+        width: 100%;
+      }
+    }
+    
+    @media (max-width: 640px) {
+      #document-tools .hidden {
+        display: none !important;
+      }
+      
+      #document-tools button {
+        padding: 0.5rem;
+      }
+      
+      #document-tools span {
+        display: none;
+      }
+      
+      .toolbar-wrap {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+    }
   </style>
 </head>
 
-<body class="bg-gray-50 font-sans text-sm antialiased">
+<body class="bg-gray-25 font-sans text-sm antialiased">
   <div class="flex min-h-screen">
     <!-- Sidebar -->
-    <aside class="w-64 bg-white shadow-md p-4 sidebar-transition hidden md:block">
+    <aside class="sidebar w-64 p-6 sidebar-transition hidden md:block">
       <div class="flex items-center mb-6">
         <div class="bg-blue-100 p-2 rounded-lg mr-3">
           <i data-lucide="book-open" class="w-6 h-6 text-blue-600"></i>
@@ -148,29 +219,29 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           THESIS/CAPSTONE<br>MANAGEMENT
         </h1>
       </div>
-      <nav class="space-y-1 text-gray-700 font-medium">
-        <a href="#" data-tab="dashboard" class="flex items-center gap-3 p-3 sidebar-item active-tab hover:bg-blue-50 rounded-lg">
+      <nav class="space-y-2">
+        <a href="#" data-tab="dashboard" class="nav-link sidebar-item active">
           <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
         </a>
-        <a href="#" data-tab="students" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="students" class="nav-link sidebar-item">
           <i data-lucide="users" class="w-5 h-5"></i> Students
         </a>
-        <a href="#" data-tab="theses" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="theses" class="nav-link sidebar-item">
           <i data-lucide="book" class="w-5 h-5"></i> Theses
         </a>
-        <a href="#" data-tab="document-review" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="document-review" class="nav-link sidebar-item">
           <i data-lucide="file-edit" class="w-5 h-5"></i> Document Review
         </a>
-        <a href="#" data-tab="feedback" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="feedback" class="nav-link sidebar-item">
           <i data-lucide="message-circle" class="w-5 h-5"></i> Feedback
         </a>
-        <a href="#" data-tab="timeline" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="timeline" class="nav-link sidebar-item">
           <i data-lucide="clock" class="w-5 h-5"></i> Timeline
         </a>
-        <a href="#" data-tab="activity-logs" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="activity-logs" class="nav-link sidebar-item">
           <i data-lucide="activity" class="w-5 h-5"></i> Activity Logs
         </a>
-        <a href="#" data-tab="reports" class="flex items-center gap-3 p-3 sidebar-item hover:bg-gray-50 rounded-lg">
+        <a href="#" data-tab="reports" class="nav-link sidebar-item">
           <i data-lucide="bar-chart" class="w-5 h-5"></i> Reports
         </a>
       </nav>
@@ -196,25 +267,49 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </button>
 
     <!-- Main Content -->
-    <main class="flex-1 p-4 md:p-6">
-      <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 class="text-xl font-semibold">Dashboard</h2>
-          <p class="text-gray-500 text-sm">Welcome back, <?php echo htmlspecialchars($user['full_name']); ?></p>
+    <main class="flex-1 p-6 md:p-8">
+      <div class="flex justify-between items-center mb-8">
+        <div class="fade-in">
+          <h2 class="heading-lg text-gradient">Dashboard</h2>
+          <p class="body-sm text-gray-500 mt-1">Welcome back, <?php echo htmlspecialchars($user['full_name']); ?></p>
         </div>
-        <div class="flex items-center space-x-4">
-          <button class="relative text-gray-600 hover:text-gray-900">
+        <div class="flex items-center gap-4">
+          <!-- Notifications -->
+          <button class="btn btn-ghost hover-lift relative">
             <i data-lucide="bell" class="w-5 h-5"></i>
-            <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+            <span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
+              <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
+            </span>
           </button>
+          
+          <!-- User Menu -->
           <div class="relative group">
-            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold cursor-pointer">
-              <?php echo strtoupper(substr($user['full_name'], 0, 1)); ?>
-            </div>
-            <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
-              <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
-              <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
-              <a href="logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+            <button class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors">
+              <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
+                <?php echo strtoupper(substr($user['full_name'], 0, 1)); ?>
+              </div>
+              <div class="hidden md:block text-left">
+                <p class="font-medium text-gray-800"><?php echo htmlspecialchars($user['full_name']); ?></p>
+                <p class="text-xs text-gray-500">Adviser</p>
+              </div>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+            </button>
+            
+            <div class="absolute right-0 mt-2 w-64 card shadow-xl py-2 z-50 hidden group-hover:block">
+              <div class="px-4 py-3 border-b border-gray-100">
+                <p class="font-medium text-gray-800"><?php echo htmlspecialchars($user['full_name']); ?></p>
+                <p class="text-sm text-gray-500"><?php echo htmlspecialchars($user['email']); ?></p>
+              </div>
+              <a href="#" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <i data-lucide="user" class="w-4 h-4"></i> Profile
+              </a>
+              <a href="#" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <i data-lucide="settings" class="w-4 h-4"></i> Settings
+              </a>
+              <hr class="my-2">
+              <a href="logout.php" class="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+              </a>
             </div>
           </div>
         </div>
@@ -223,36 +318,65 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       <!-- Dashboard Tab Content -->
       <div id="dashboard-content" class="tab-content">
         <!-- Summary Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div class="bg-white p-4 rounded-lg shadow flex items-center card-hover">
-            <div class="bg-blue-100 p-3 rounded-full mr-4">
-              <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+          <div class="card card-interactive p-6 hover-lift">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-4 mb-3">
+                  <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i data-lucide="file-text" class="w-6 h-6 text-white"></i>
+                  </div>
+                  <div>
+                    <p class="heading-sm text-gray-800"><?php echo $stats['in_progress']; ?></p>
+                    <p class="body-sm text-gray-500">In Progress</p>
+                  </div>
+                </div>
+              </div>
+              <span class="status-badge status-info">Active</span>
             </div>
-            <div>
-              <p class="font-bold text-2xl"><?php echo $stats['in_progress']; ?></p>
-              <p class="text-gray-500 text-sm">In Progress</p>
+            <div class="progress-container mt-4">
+              <div class="progress-bar" style="width: 65%"></div>
             </div>
-            <div class="ml-auto text-sm text-blue-600">Active</div>
           </div>
-          <div class="bg-white p-4 rounded-lg shadow flex items-center card-hover">
-            <div class="bg-amber-100 p-3 rounded-full mr-4">
-              <i data-lucide="alert-circle" class="w-5 h-5 text-amber-600"></i>
+          
+          <div class="card card-interactive p-6 hover-lift">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-4 mb-3">
+                  <div class="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i data-lucide="clock" class="w-6 h-6 text-white"></i>
+                  </div>
+                  <div>
+                    <p class="heading-sm text-gray-800"><?php echo $stats['for_review']; ?></p>
+                    <p class="body-sm text-gray-500">For Review</p>
+                  </div>
+                </div>
+              </div>
+              <span class="status-badge status-warning">Pending</span>
             </div>
-            <div>
-              <p class="font-bold text-2xl"><?php echo $stats['for_review']; ?></p>
-              <p class="text-gray-500 text-sm">For Review</p>
+            <div class="progress-container mt-4">
+              <div class="progress-bar" style="width: 35%; background: linear-gradient(90deg, var(--warning-500), var(--warning-400));"></div>
             </div>
-            <div class="ml-auto text-sm text-amber-600">Pending</div>
           </div>
-          <div class="bg-white p-4 rounded-lg shadow flex items-center card-hover">
-            <div class="bg-green-100 p-3 rounded-full mr-4">
-              <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+          
+          <div class="card card-interactive p-6 hover-lift">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-4 mb-3">
+                  <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+                  </div>
+                  <div>
+                    <p class="heading-sm text-gray-800"><?php echo $stats['approved']; ?></p>
+                    <p class="body-sm text-gray-500">Approved</p>
+                  </div>
+                </div>
+              </div>
+              <span class="status-badge status-success">Complete</span>
             </div>
-            <div>
-              <p class="font-bold text-2xl"><?php echo $stats['approved']; ?></p>
-              <p class="text-gray-500 text-sm">Approved</p>
+            <div class="progress-container mt-4">
+              <div class="progress-bar" style="width: 85%; background: linear-gradient(90deg, var(--success-500), var(--success-400));"></div>
             </div>
-            <div class="ml-auto text-sm text-green-600">Complete</div>
           </div>
         </div>
 
@@ -644,9 +768,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       <!-- Document Review Tab Content -->
       <div id="document-review-content" class="tab-content hidden">
-        <div class="flex h-screen relative">
+        <div class="flex h-[calc(100vh-200px)] relative overflow-hidden">
           <!-- Collapsible Sidebar -->
-          <div id="document-sidebar" class="w-80 bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out">
+          <div id="document-sidebar" class="w-80 min-w-80 bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out shrink-0">
             <!-- Sidebar Header -->
             <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
               <div class="flex justify-between items-center">
@@ -709,23 +833,28 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           </div>
 
           <!-- Main Document Viewer -->
-          <div class="flex-1 flex flex-col bg-gray-50">
+          <div class="flex-1 flex flex-col bg-gray-50 min-w-0 overflow-hidden">
             <!-- Enhanced Toolbar -->
-            <div class="bg-white border-b border-gray-200 p-4">
-              <div class="flex justify-between items-center">
-                <div class="flex-1">
-                  <h3 class="font-semibold text-lg text-gray-800" id="document-title">Select a document to begin review</h3>
-                  <p class="text-sm text-gray-500 mt-1" id="document-info">Choose a student and chapter from the sidebar</p>
+            <div class="bg-white border-b border-gray-200 p-4 shrink-0">
+              <div class="flex justify-between items-center flex-wrap gap-4">
+                <!-- Mobile Sidebar Toggle -->
+                <button id="mobile-sidebar-toggle" class="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
+                
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-semibold text-lg text-gray-800 truncate" id="document-title">Select a document to begin review</h3>
+                  <p class="text-sm text-gray-500 mt-1 truncate" id="document-info">Choose a student and chapter from the sidebar</p>
                 </div>
                 
                 <!-- Enhanced Document Tools -->
-                <div class="flex items-center space-x-3" id="document-tools" style="display: none;">
-                  <div class="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
-                    <button id="highlight-btn" class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm hover:bg-yellow-200 transition-colors flex items-center">
-                      <i data-lucide="highlighter" class="w-4 h-4 mr-2"></i>Highlight
+                <div class="flex items-center space-x-3 flex-wrap" id="document-tools" style="display: none;">
+                  <div class="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg flex-wrap gap-2">
+                    <button id="highlight-btn" class="px-3 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm hover:bg-yellow-200 transition-colors flex items-center">
+                      <i data-lucide="highlighter" class="w-4 h-4 mr-1"></i><span class="hidden sm:inline">Highlight</span>
                     </button>
-                    <button id="comment-btn" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm hover:bg-blue-200 transition-colors flex items-center">
-                      <i data-lucide="message-circle" class="w-4 h-4 mr-2"></i>Comment
+                    <button id="comment-btn" class="px-3 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm hover:bg-blue-200 transition-colors flex items-center">
+                      <i data-lucide="message-circle" class="w-4 h-4 mr-1"></i><span class="hidden sm:inline">Comment</span>
                     </button>
                     
                     <!-- Color Picker -->
@@ -752,12 +881,12 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   <div class="h-6 w-px bg-gray-300"></div>
                   
                   <!-- Document Actions -->
-                  <div class="flex items-center space-x-2">
-                    <button id="fullscreen-btn" class="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-lg text-sm hover:bg-indigo-200 transition-colors flex items-center" title="Open in Full Screen">
-                      <i data-lucide="maximize" class="w-4 h-4 mr-2"></i>Full Screen
+                  <div class="flex items-center space-x-2 flex-wrap gap-2">
+                    <button id="fullscreen-btn" class="px-3 py-2 bg-indigo-100 text-indigo-800 rounded-lg text-sm hover:bg-indigo-200 transition-colors flex items-center" title="Open in Full Screen">
+                      <i data-lucide="maximize" class="w-4 h-4 mr-1"></i><span class="hidden lg:inline">Full Screen</span>
                     </button>
-                    <a id="download-document-btn" href="#" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm hover:bg-green-200 transition-colors flex items-center" target="_blank">
-                      <i data-lucide="download" class="w-4 h-4 mr-2"></i>Download
+                    <a id="download-document-btn" href="#" class="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm hover:bg-green-200 transition-colors flex items-center" target="_blank">
+                      <i data-lucide="download" class="w-4 h-4 mr-1"></i><span class="hidden lg:inline">Download</span>
                     </a>
                   </div>
                 </div>
@@ -765,10 +894,10 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
 
             <!-- Document Viewer Area -->
-            <div class="flex-1 relative bg-gray-100">
-              <div id="adviser-word-document-viewer" class="w-full h-full">
+            <div class="flex-1 relative bg-gray-100 overflow-hidden">
+              <div id="adviser-word-document-viewer" class="w-full h-full overflow-auto">
                 <div class="flex items-center justify-center h-full text-gray-500">
-                  <div class="text-center">
+                  <div class="text-center px-4">
                     <i data-lucide="file-text" class="w-20 h-20 mx-auto mb-4 text-gray-300"></i>
                     <h3 class="text-lg font-medium mb-2">No Document Selected</h3>
                     <p class="text-sm">Select a student and chapter from the sidebar to start reviewing</p>
@@ -777,15 +906,15 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               </div>
               
               <!-- Fallback document preview for non-Word files -->
-              <div id="document-preview" class="hidden w-full h-full overflow-y-auto p-6">
+              <div id="document-preview" class="hidden w-full h-full overflow-y-auto p-4 md:p-6">
                 <div class="max-w-4xl mx-auto">
-                  <div class="bg-white rounded-lg p-6 mb-6 shadow-sm">
-                    <div class="flex items-center justify-between mb-4">
-                      <div>
-                        <h4 id="file-name" class="text-lg font-medium text-gray-800"></h4>
-                        <p id="file-info" class="text-sm text-gray-500"></p>
+                  <div class="bg-white rounded-lg p-4 md:p-6 mb-6 shadow-sm">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                      <div class="min-w-0">
+                        <h4 id="file-name" class="text-lg font-medium text-gray-800 truncate"></h4>
+                        <p id="file-info" class="text-sm text-gray-500 truncate"></p>
                       </div>
-                      <div>
+                      <div class="shrink-0">
                         <span id="file-type-badge" class="px-3 py-1 text-sm rounded-full"></span>
                       </div>
                     </div>
@@ -796,7 +925,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   </div>
                   
                   <!-- Text content preview for highlighting and commenting -->
-                  <div id="text-content-preview" class="bg-white rounded-lg p-6 shadow-sm">
+                  <div id="text-content-preview" class="bg-white rounded-lg p-4 md:p-6 shadow-sm">
                     <!-- Text content will be loaded here for highlighting -->
                   </div>
                 </div>
@@ -804,19 +933,22 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
           </div>
 
-          <!-- Right Panel Container -->
-          <div id="right-panels-container" class="fixed right-0 top-0 h-full z-20 pointer-events-none">
+          <!-- Right Panel Container - Responsive Overlay -->
+          <div id="right-panels-container" class="fixed inset-0 z-20 pointer-events-none" style="display: none;">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black bg-opacity-25 pointer-events-auto" id="panel-backdrop"></div>
+            
             <!-- Tabbed Panel System -->
-            <div id="tabbed-panel" class="w-96 h-full bg-white border-l border-gray-200 shadow-xl transform translate-x-full transition-transform duration-300 ease-in-out pointer-events-auto">
+            <div id="tabbed-panel" class="absolute right-0 top-0 h-full w-full max-w-md bg-white border-l border-gray-200 shadow-xl transform translate-x-full transition-transform duration-300 ease-in-out pointer-events-auto">
               <!-- Panel Tabs -->
-              <div class="flex border-b border-gray-200">
-                <button id="analysis-tab" class="flex-1 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-b-2 border-transparent transition-all">
-                  <i data-lucide="file-check" class="w-4 h-4 mr-2 inline"></i>
-                  Analysis
+              <div class="flex border-b border-gray-200 shrink-0">
+                <button id="analysis-tab" class="flex-1 px-3 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-b-2 border-transparent transition-all">
+                  <i data-lucide="file-check" class="w-4 h-4 mr-1 inline"></i>
+                  <span class="hidden sm:inline">Analysis</span>
                 </button>
-                <button id="comments-tab" class="flex-1 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-b-2 border-transparent transition-all">
-                  <i data-lucide="message-circle" class="w-4 h-4 mr-2 inline"></i>
-                  Comments
+                <button id="comments-tab" class="flex-1 px-3 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-b-2 border-transparent transition-all">
+                  <i data-lucide="message-circle" class="w-4 h-4 mr-1 inline"></i>
+                  <span class="hidden sm:inline">Comments</span>
                 </button>
                 <button id="close-panel" class="px-3 py-3 text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
                   <i data-lucide="x" class="w-4 h-4"></i>
@@ -824,17 +956,17 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               </div>
 
               <!-- Panel Content -->
-              <div class="flex-1 h-full overflow-hidden">
+              <div class="flex-1 overflow-hidden flex flex-col">
                 <!-- Analysis Panel Content -->
-                <div id="analysis-content" class="h-full hidden">
-                  <div class="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-gray-200">
+                <div id="analysis-content" class="h-full hidden flex flex-col">
+                  <div class="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-gray-200 shrink-0">
                     <h3 class="font-semibold text-gray-800 flex items-center">
                       <i data-lucide="file-check" class="w-5 h-5 mr-2 text-purple-500"></i>
                       Document Format Analysis
                     </h3>
                     <p class="text-sm text-gray-600 mt-1">AI-powered formatting and structure analysis</p>
                   </div>
-                  <div class="flex-1 overflow-y-auto p-4" style="height: calc(100vh - 140px);">
+                  <div class="flex-1 overflow-y-auto p-4">
                     <div id="format-analysis-content">
                       <div class="text-center py-12 text-gray-500">
                         <i data-lucide="search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
@@ -846,15 +978,15 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
 
                 <!-- Comments Panel Content -->
-                <div id="comments-content" class="h-full hidden">
-                  <div class="p-4 bg-gradient-to-r from-green-50 to-blue-50 border-b border-gray-200">
+                <div id="comments-content" class="h-full hidden flex flex-col">
+                  <div class="p-4 bg-gradient-to-r from-green-50 to-blue-50 border-b border-gray-200 shrink-0">
                     <h3 class="font-semibold text-gray-800 flex items-center">
                       <i data-lucide="message-circle" class="w-5 h-5 mr-2 text-green-500"></i>
                       Comments & Feedback
                     </h3>
                     <p class="text-sm text-gray-600 mt-1">Review and add feedback to the document</p>
                   </div>
-                  <div class="flex-1 overflow-y-auto p-4" style="height: calc(100vh - 200px);">
+                  <div class="flex-1 overflow-y-auto p-4">
                     <div id="comments-list" class="space-y-3 mb-4">
                       <div class="text-center py-12 text-gray-500">
                         <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
@@ -865,11 +997,11 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   </div>
                   
                   <!-- Fixed Quick Comment Form -->
-                  <div class="border-t border-gray-200 p-4 bg-gray-50">
+                  <div class="border-t border-gray-200 p-4 bg-gray-50 shrink-0">
                     <h4 class="font-medium text-sm mb-3 text-gray-700">Add Quick Comment</h4>
                     <div class="space-y-3">
                       <textarea id="quick-comment-text" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" rows="3" placeholder="Type your general feedback here..."></textarea>
-                      <div class="flex justify-between items-center">
+                      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div class="text-xs text-gray-500">
                           <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
                           For specific feedback, click on document text
@@ -885,15 +1017,16 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               </div>
             </div>
 
-            <!-- Quick Access Floating Buttons -->
-            <div id="panel-triggers" class="absolute right-4 top-1/2 transform -translate-y-1/2 space-y-3 pointer-events-auto">
-              <button id="trigger-analysis" class="w-12 h-12 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-all duration-200 hover:scale-110 flex items-center justify-center" title="Format Analysis">
-                <i data-lucide="file-check" class="w-5 h-5"></i>
-              </button>
-              <button id="trigger-comments" class="w-12 h-12 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700 transition-all duration-200 hover:scale-110 flex items-center justify-center" title="Comments & Feedback">
-                <i data-lucide="message-circle" class="w-5 h-5"></i>
-              </button>
-            </div>
+          </div>
+          
+          <!-- Quick Access Floating Buttons -->
+          <div id="panel-triggers" class="fixed bottom-6 right-6 space-y-3 z-30">
+            <button id="trigger-analysis" class="w-12 h-12 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-all duration-200 hover:scale-110 flex items-center justify-center" title="Format Analysis">
+              <i data-lucide="file-check" class="w-5 h-5"></i>
+            </button>
+            <button id="trigger-comments" class="w-12 h-12 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700 transition-all duration-200 hover:scale-110 flex items-center justify-center" title="Comments & Feedback">
+              <i data-lucide="message-circle" class="w-5 h-5"></i>
+            </button>
           </div>
         </div>
 
@@ -1376,8 +1509,8 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
       });
 
-      // Load chapter content
-      function loadChapter(chapterId, chapterTitle) {
+      // Load chapter content - moved to global scope
+      window.loadChapter = function(chapterId, chapterTitle) {
         console.log('=== loadChapter called ===');
         console.log('Setting currentChapterId to:', chapterId);
         
@@ -1394,7 +1527,12 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Load chapter data
         fetch(`api/document_review.php?action=get_chapter&chapter_id=${chapterId}`)
-          .then(response => response.json())
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+          })
           .then(data => {
             if (data.success) {
               const chapter = data.chapter;
@@ -1425,7 +1563,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 if (wordFiles.length > 0) {
                   // Use Word viewer for Word documents
                   const wordFile = wordFiles[0]; // Use the first Word file
-                  
+                  window.currentFileId = wordFile.id; // <-- Ensure this is set for fullscreen
                   // Hide fallback preview and show Word viewer
                   document.getElementById('document-preview').classList.add('hidden');
                   
@@ -1442,7 +1580,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 } else {
                   // Show fallback preview for non-Word files
                   const latestFile = files[0];
-                  
+                  window.currentFileId = latestFile.id; // <-- Ensure this is set for fullscreen
                   // Hide Word viewer and show fallback preview
                   document.getElementById('adviser-word-document-viewer').innerHTML = `
                     <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
@@ -1450,40 +1588,40 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                       <p>Word viewer not available for this file type</p>
                     </div>
                   `;
-                document.getElementById('document-preview').classList.remove('hidden');
-                
-                // Update file information
-                document.getElementById('file-name').textContent = latestFile.original_filename;
-                document.getElementById('file-info').textContent = `Uploaded on ${new Date(latestFile.uploaded_at).toLocaleString()}`;
-                
-                // Set file type badge
-                const fileType = latestFile.file_type;
-                let badgeClass = 'bg-gray-100 text-gray-800';
-                let fileTypeText = 'Unknown';
-                
-                if (fileType.includes('pdf')) {
-                  badgeClass = 'bg-red-100 text-red-800';
-                  fileTypeText = 'PDF';
+                  document.getElementById('document-preview').classList.remove('hidden');
+                  
+                  // Update file information
+                  document.getElementById('file-name').textContent = latestFile.original_filename;
+                  document.getElementById('file-info').textContent = `Uploaded on ${new Date(latestFile.uploaded_at).toLocaleString()}`;
+                  
+                  // Set file type badge
+                  const fileType = latestFile.file_type;
+                  let badgeClass = 'bg-gray-100 text-gray-800';
+                  let fileTypeText = 'Unknown';
+                  
+                  if (fileType.includes('pdf')) {
+                    badgeClass = 'bg-red-100 text-red-800';
+                    fileTypeText = 'PDF';
                   } else if (fileType.includes('word') || fileType.includes('document') || 
-                           fileType === 'application/msword' || 
-                           fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-                  badgeClass = 'bg-blue-100 text-blue-800';
-                  fileTypeText = 'Word';
+                             fileType === 'application/msword' || 
+                             fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+                    badgeClass = 'bg-blue-100 text-blue-800';
+                    fileTypeText = 'Word';
+                  }
+                  
+                  document.getElementById('file-type-badge').className = `px-2 py-1 text-xs rounded ${badgeClass}`;
+                  document.getElementById('file-type-badge').textContent = fileTypeText;
+                  
+                  // Set download link
+                  const downloadBtn = document.getElementById('download-document-btn');
+                  downloadBtn.href = `api/download_file.php?file_id=${latestFile.id}`;
+                  
+                  // Load formatting analysis for non-Word files
+                  loadFormatAnalysis(latestFile.id);
                 }
                 
-                document.getElementById('file-type-badge').className = `px-2 py-1 text-xs rounded ${badgeClass}`;
-                document.getElementById('file-type-badge').textContent = fileTypeText;
-                
-                // Set download link
-                const downloadBtn = document.getElementById('download-document-btn');
-                downloadBtn.href = `api/download_file.php?file_id=${latestFile.id}`;
-                
-                // Load formatting analysis for non-Word files
-                loadFormatAnalysis(latestFile.id);
-                }
-                
-                // Show quick comment form
-                document.getElementById('quick-comment-form').classList.remove('hidden');
+                // Show quick comment form (element is in the comments panel)
+                // No need to show/hide as it's always visible in the panel
                 
                 // Load existing comments
                 loadComments(chapterId);
@@ -1500,7 +1638,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 // Hide tools since there's no content
                 document.getElementById('document-tools').style.display = 'none';
-                document.getElementById('quick-comment-form').classList.add('hidden');
+                // Quick comment form is in the panel, no need to hide
                 
                 // Clear format analysis
                 document.getElementById('format-analysis-content').innerHTML = `
@@ -1515,13 +1653,36 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 lucide.createIcons();
             } else {
               showError('Failed to load chapter: ' + data.error);
+              // Reset document viewer to show no content
+              document.getElementById('adviser-word-document-viewer').innerHTML = `
+                <div class="flex items-center justify-center h-full text-gray-500">
+                  <div class="text-center px-4">
+                    <i data-lucide="file-text" class="w-20 h-20 mx-auto mb-4 text-gray-300"></i>
+                    <h3 class="text-lg font-medium mb-2">Error Loading Document</h3>
+                    <p class="text-sm">${data.error}</p>
+                  </div>
+                </div>
+              `;
+              document.getElementById('document-tools').style.display = 'none';
+              return; // Exit early to prevent further processing
             }
           })
           .catch(error => {
             console.error('Error loading chapter:', error);
-            showError('Failed to load chapter');
+            showError('Failed to load chapter: ' + error.message);
+            // Reset document viewer to show no content
+            document.getElementById('adviser-word-document-viewer').innerHTML = `
+              <div class="flex items-center justify-center h-full text-gray-500">
+                <div class="text-center px-4">
+                  <i data-lucide="file-text" class="w-20 h-20 mx-auto mb-4 text-gray-300"></i>
+                  <h3 class="text-lg font-medium mb-2">Error Loading Document</h3>
+                  <p class="text-sm">${error.message}</p>
+                </div>
+              </div>
+            `;
+            document.getElementById('document-tools').style.display = 'none';
           });
-      }
+      };
 
       // Global Word viewer instance for adviser
       let adviserWordViewer = null;
@@ -1567,9 +1728,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
       }
 
-      // Load existing highlights
-      function loadHighlights(chapterId) {
-        fetch(`api/comments.php?action=get_highlights&chapter_id=${chapterId}`)
+      // Load existing highlights - moved to global scope
+      window.loadHighlights = function(chapterId) {
+        fetch(`api/document_review.php?action=get_highlights&chapter_id=${chapterId}`)
           .then(response => response.json())
           .then(data => {
             if (data.success) {
@@ -1577,11 +1738,11 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
           })
           .catch(error => console.error('Error loading highlights:', error));
-      }
+      };
 
-      // Load existing comments
-      function loadComments(chapterId) {
-        fetch(`api/comments.php?action=get_comments&chapter_id=${chapterId}`)
+      // Load existing comments - moved to global scope
+      window.loadComments = function(chapterId) {
+        fetch(`api/document_review.php?action=get_comments&chapter_id=${chapterId}`)
           .then(response => response.json())
           .then(data => {
             if (data.success) {
@@ -1589,7 +1750,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
           })
           .catch(error => console.error('Error loading comments:', error));
-      }
+      };
 
       // Apply highlights to content
       function applyHighlights(highlights) {
@@ -1623,7 +1784,42 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         });
       }
 
-      // Display comments function removed - comments panel no longer exists
+      // Display comments in the comments panel - moved to global scope
+      window.displayComments = function(comments) {
+        const commentsList = document.getElementById('comments-list');
+        if (!commentsList) return;
+        
+        if (comments && comments.length > 0) {
+          commentsList.innerHTML = comments.map(comment => `
+            <div class="border rounded-lg p-3 bg-white">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    ${comment.adviser_name ? comment.adviser_name.charAt(0).toUpperCase() : 'A'}
+                  </div>
+                  <span class="text-sm font-medium">${comment.adviser_name || 'Adviser'}</span>
+                </div>
+                <span class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleString()}</span>
+              </div>
+              <p class="text-sm text-gray-700">${comment.comment_text}</p>
+              ${comment.highlighted_text ? `
+                <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
+                  <span class="font-medium">Highlighted:</span> "${comment.highlighted_text}"
+                </div>
+              ` : ''}
+            </div>
+          `).join('');
+        } else {
+          commentsList.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <i data-lucide="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+              <p class="text-sm">No comments yet</p>
+              <p class="text-xs mt-1 text-gray-400">Click on text in the document to add comments</p>
+            </div>
+          `;
+        }
+        lucide.createIcons();
+      };
 
       // Make text selectable for highlighting
       function makeTextSelectable() {
@@ -1640,6 +1836,94 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               addHighlight();
             }
           }
+        });
+      }
+
+      // === Reusable Highlight and Comment Functions ===
+      function enableHighlightMode(container, highlightBtn) {
+        let highlightMode = false;
+        let selectedText = '';
+        let selectedRange = null;
+
+        function resetHighlightMode() {
+          highlightMode = false;
+          container.style.cursor = 'default';
+          if (highlightBtn) highlightBtn.textContent = 'Highlight';
+        }
+
+        if (!container) return;
+
+        highlightBtn.addEventListener('click', function() {
+          highlightMode = !highlightMode;
+          container.style.cursor = highlightMode ? 'crosshair' : 'default';
+          this.textContent = highlightMode ? 'Cancel Highlight' : 'Highlight';
+        });
+
+        container.addEventListener('mouseup', function(e) {
+          if (highlightMode) {
+            const selection = window.getSelection();
+            if (selection.toString().trim().length > 0) {
+              selectedText = selection.toString().trim();
+              selectedRange = selection.getRangeAt(0);
+              // Use the addHighlight logic from main view
+              if (typeof window.currentChapterId !== 'undefined' && window.currentChapterId) {
+                addHighlightGeneric(selectedText, selectedRange, window.currentChapterId, container);
+              }
+              // Reset
+              resetHighlightMode();
+            }
+          }
+        });
+      }
+
+      function enableCommentMode(container, commentBtn) {
+        if (!container) return;
+        commentBtn.addEventListener('click', function() {
+          // For now, show a notification or modal
+          showNotification('Click on any paragraph to add a comment to it.', 'info');
+          // You can expand this to allow paragraph-based commenting in fullscreen
+        });
+      }
+
+      // Generic addHighlight function for both main and fullscreen
+      function addHighlightGeneric(selectedText, selectedRange, chapterId, container) {
+        if (!selectedText || !chapterId) return;
+        const formData = new FormData();
+        formData.append('action', 'add_highlight');
+        formData.append('chapter_id', chapterId);
+        formData.append('start_offset', 0); // Simplified
+        formData.append('end_offset', selectedText.length);
+        formData.append('highlighted_text', selectedText);
+        formData.append('highlight_color', window.currentHighlightColor || '#ffeb3b');
+
+        fetch('api/document_review.php', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Apply highlight visually in the given container
+            if (selectedRange) {
+              const highlightSpan = document.createElement('mark');
+              highlightSpan.style.backgroundColor = window.currentHighlightColor || '#ffeb3b';
+              highlightSpan.className = 'highlight-marker';
+              highlightSpan.dataset.highlightId = data.highlight_id;
+              try {
+                selectedRange.surroundContents(highlightSpan);
+              } catch (e) {
+                highlightSpan.textContent = selectedText;
+                selectedRange.deleteContents();
+                selectedRange.insertNode(highlightSpan);
+              }
+            }
+            window.getSelection().removeAllRanges();
+          } else {
+            showError('Failed to add highlight: ' + data.error);
+          }
+        })
+        .catch(error => {
+          showError('Failed to add highlight');
         });
       }
 
@@ -1742,7 +2026,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           formData.append('end_offset', selectedText.length);
         }
         
-        fetch('api/comments.php', {
+        fetch('api/document_review.php', {
           method: 'POST',
           body: formData
         })
@@ -1784,7 +2068,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         formData.append('highlighted_text', window.selectedText);
         formData.append('highlight_color', window.currentHighlightColor);
         
-        fetch('api/comments.php', {
+        fetch('api/document_review.php', {
           method: 'POST',
           body: formData
         })
@@ -1836,8 +2120,8 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         document.getElementById('comment-text').value = '';
       });
 
-      // Format Analysis Functions
-      function loadFormatAnalysis(fileId) {
+      // Format Analysis Functions - moved to global scope
+      window.loadFormatAnalysis = function(fileId) {
         const analysisContent = document.getElementById('format-analysis-content');
         
         // Show loading state
@@ -1874,9 +2158,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             `;
             lucide.createIcons();
           });
-      }
+      };
 
-      function displayFormatAnalysis(analysis, fileInfo) {
+      window.displayFormatAnalysis = function(analysis, fileInfo) {
         const analysisContent = document.getElementById('format-analysis-content');
         
         // Determine overall status color
@@ -2018,7 +2302,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Refresh Lucide icons
         lucide.createIcons();
-      }
+      };
 
       document.getElementById('save-comment')?.addEventListener('click', function() {
         const commentText = document.getElementById('comment-text').value.trim();
@@ -2036,13 +2320,13 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         selectedText = '';
       });
 
-      // Remove highlight function
-      function removeHighlight(highlightId) {
+      // Remove highlight function - moved to global scope
+      window.removeHighlight = function(highlightId) {
         const formData = new FormData();
         formData.append('action', 'remove_highlight');
         formData.append('highlight_id', highlightId);
         
-        fetch('api/comments.php', {
+        fetch('api/document_review.php', {
           method: 'POST',
           body: formData
         })
@@ -2064,15 +2348,15 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           console.error('Error removing highlight:', error);
           showError('Failed to remove highlight');
         });
-      }
+      };
 
-      // Resolve comment function
-      function resolveComment(commentId) {
+      // Resolve comment function - moved to global scope
+      window.resolveComment = function(commentId) {
         const formData = new FormData();
         formData.append('action', 'resolve_comment');
         formData.append('comment_id', commentId);
         
-        fetch('api/comments.php', {
+        fetch('api/document_review.php', {
           method: 'POST',
           body: formData
         })
@@ -2088,14 +2372,14 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           console.error('Error resolving comment:', error);
           showError('Failed to resolve comment');
         });
-      }
+      };
 
-      // Error display function
-      function showError(message) {
+      // Error display function - moved to global scope
+      window.showError = function(message) {
         console.error(message);
-        // You can implement a proper error display here
-        alert(message);
-      }
+        // Use the notification system instead of alert
+        showNotification(message, 'error');
+      };
 
       // Close modal when clicking outside
       document.getElementById('comment-modal')?.addEventListener('click', function(e) {
@@ -2663,8 +2947,8 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         });
       }
       
-      // Show notification function
-      function showNotification(message, type = 'info') {
+      // Show notification function - moved to global scope
+      window.showNotification = function(message, type = 'info') {
         const notification = document.createElement('div');
         notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
           type === 'success' ? 'bg-green-100 border-l-4 border-green-500 text-green-700' : 
@@ -2692,7 +2976,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         setTimeout(() => {
           document.body.removeChild(notification);
         }, 3000);
-      }
+      };
 
       // Reports functionality
       let currentChart;
@@ -3692,13 +3976,21 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         sidebarToggle.addEventListener('click', function() {
           sidebarCollapsed = !sidebarCollapsed;
           if (sidebarCollapsed) {
-            sidebar.style.width = '60px';
-            const content = sidebar.querySelector('.flex-1');
-            const quickView = sidebar.querySelector('.border-t');
-            if (content) content.style.display = 'none';
-            if (quickView) quickView.style.display = 'none';
+            // On mobile, hide sidebar completely; on desktop, collapse to icon only
+            if (window.innerWidth <= 768) {
+              sidebar.style.display = 'none';
+            } else {
+              sidebar.style.width = '60px';
+              sidebar.style.minWidth = '60px';
+              const content = sidebar.querySelector('.flex-1');
+              const quickView = sidebar.querySelector('.border-t');
+              if (content) content.style.display = 'none';
+              if (quickView) quickView.style.display = 'none';
+            }
           } else {
+            sidebar.style.display = 'flex';
             sidebar.style.width = '320px';
+            sidebar.style.minWidth = '320px';
             const content = sidebar.querySelector('.flex-1');
             const quickView = sidebar.querySelector('.border-t');
             if (content) content.style.display = 'block';
@@ -3724,8 +4016,13 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       let currentActiveTab = null;
 
       function openPanel(tabType) {
-        // Show the panel
-        tabbedPanel.classList.remove('translate-x-full');
+        const panelContainer = document.getElementById('right-panels-container');
+        
+        // Show the panel container and backdrop
+        panelContainer.style.display = 'block';
+        setTimeout(() => {
+          tabbedPanel.classList.remove('translate-x-full');
+        }, 10);
         
         // Reset all tabs
         analysisTab.classList.remove('border-blue-500', 'text-blue-600', 'bg-blue-50');
@@ -3745,13 +4042,27 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           currentActiveTab = 'comments';
           if (commentsChevron) commentsChevron.classList.add('rotate-90');
         }
+        
+        // Prevent body scroll on mobile
+        document.body.style.overflow = 'hidden';
       }
 
       function closeTabPanel() {
+        const panelContainer = document.getElementById('right-panels-container');
+        
         tabbedPanel.classList.add('translate-x-full');
+        
+        // Hide the panel container after animation
+        setTimeout(() => {
+          panelContainer.style.display = 'none';
+        }, 300);
+        
         currentActiveTab = null;
         if (analysisChevron) analysisChevron.classList.remove('rotate-90');
         if (commentsChevron) commentsChevron.classList.remove('rotate-90');
+        
+        // Restore body scroll
+        document.body.style.overflow = '';
       }
 
       // Floating button triggers
@@ -3796,6 +4107,31 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       if (closePanel) {
         closePanel.addEventListener('click', closeTabPanel);
       }
+
+      // Close panel when clicking backdrop
+      const panelBackdrop = document.getElementById('panel-backdrop');
+      if (panelBackdrop) {
+        panelBackdrop.addEventListener('click', closeTabPanel);
+      }
+
+      // Mobile sidebar toggle
+      const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
+      if (mobileSidebarToggle) {
+        mobileSidebarToggle.addEventListener('click', function() {
+          sidebar.classList.toggle('sidebar-open');
+          document.body.classList.toggle('sidebar-mobile-open');
+        });
+      }
+
+      // Close mobile sidebar when clicking outside
+      document.addEventListener('click', function(e) {
+        if (window.innerWidth <= 768) {
+          if (!sidebar.contains(e.target) && !mobileSidebarToggle.contains(e.target)) {
+            sidebar.classList.remove('sidebar-open');
+            document.body.classList.remove('sidebar-mobile-open');
+          }
+        }
+      });
 
       // Fullscreen functionality
       const fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -3850,8 +4186,11 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
     });
 
     // Fullscreen view function
-    function openFullscreenView(content, title) {
-      // Create fullscreen modal if it doesn't exist
+    // Add a global variable to store the fullscreen WordViewer instance
+    let fullscreenWordViewer = null;
+    let fullscreenLoadedFileId = null;
+
+    function openFullscreenView(_, title) {
       let fullscreenModal = document.getElementById('document-fullscreen-modal');
       if (!fullscreenModal) {
         fullscreenModal = document.createElement('div');
@@ -3878,9 +4217,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
           </div>
           <div class="fullscreen-content">
-            <div class="fullscreen-document" id="fullscreen-document-content">
-              ${content}
-            </div>
+            <div class="fullscreen-document" id="fullscreen-document-content"></div>
           </div>
         `;
         document.body.appendChild(fullscreenModal);
@@ -3900,9 +4237,13 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           fullscreenDownloadBtn.href = downloadBtn.href;
         }
       } else {
-        // Update existing modal
         fullscreenModal.querySelector('#fullscreen-document-title').textContent = title;
-        fullscreenModal.querySelector('#fullscreen-document-content').innerHTML = content;
+        fullscreenModal.querySelector('#fullscreen-document-content').innerHTML = '';
+        if (fullscreenWordViewer && typeof fullscreenWordViewer.destroy === 'function') {
+          fullscreenWordViewer.destroy();
+        }
+        fullscreenWordViewer = null;
+        fullscreenLoadedFileId = null;
         lucide.createIcons();
       }
 
@@ -3919,8 +4260,27 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
       };
       document.addEventListener('keydown', handleEscape);
+
+      // Always create a new WordViewer for fullscreen
+      const fullscreenContent = fullscreenModal.querySelector('#fullscreen-document-content');
+      if (window.currentFileId) {
+        fullscreenContent.innerHTML = '';
+        fullscreenWordViewer = new WordViewer('fullscreen-document-content', {
+          showComments: true,
+          showToolbar: false,
+          allowZoom: true
+        });
+        fullscreenWordViewer.loadDocument(window.currentFileId);
+        fullscreenLoadedFileId = window.currentFileId;
+      } else {
+        fullscreenContent.innerHTML = '<div class="text-center py-8 text-gray-500">No document loaded.</div>';
+        fullscreenLoadedFileId = null;
+      }
     }
   </script>
+
+  <!-- Modern UI Framework -->
+  <script src="assets/js/modern-ui.js"></script>
 
   <!-- Document Fullscreen Modal (will be created dynamically) -->
 

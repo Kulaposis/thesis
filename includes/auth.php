@@ -38,10 +38,18 @@ class Auth {
                     // Get the role from the database
                     $userRole = $user['role'];
                     
+                    $redirect = 'login.php';
+                    if ($userRole === 'student') {
+                        $redirect = 'studentDashboard.php';
+                    } elseif ($userRole === 'adviser') {
+                        $redirect = 'systemFunda.php';
+                    } elseif ($userRole === 'admin' || $userRole === 'super_admin') {
+                        $redirect = 'admin_dashboard.php';
+                    }
                     return [
                         'success' => true,
                         'message' => 'Login successful',
-                        'redirect' => $userRole === 'student' ? 'studentDashboard.php' : 'systemFunda.php'
+                        'redirect' => $redirect
                     ];
                 } else {
                     return ['success' => false, 'message' => 'Invalid password'];
@@ -91,10 +99,18 @@ class Auth {
             $stmt->bindParam(':department', $department);
 
             if ($stmt->execute()) {
+                $redirect = 'login.php';
+                if ($data['role'] === 'student') {
+                    $redirect = 'studentDashboard.php';
+                } elseif ($data['role'] === 'adviser') {
+                    $redirect = 'systemFunda.php';
+                } elseif ($data['role'] === 'admin' || $data['role'] === 'super_admin') {
+                    $redirect = 'admin_dashboard.php';
+                }
                 return [
                     'success' => true,
                     'message' => 'Registration successful',
-                    'redirect' => $data['role'] === 'student' ? 'studentDashboard.php' : 'systemFunda.php'
+                    'redirect' => $redirect
                 ];
             } else {
                 return ['success' => false, 'message' => 'Registration failed'];
