@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'create_user':
             $userData = [
                 'email' => $_POST['email'],
-                'password' => $_POST['password'],
+                'password' => $_POST['password'] ?? $adminManager->generateRandomPassword(),
                 'full_name' => $_POST['full_name'],
                 'role' => $_POST['role'],
                 'student_id' => $_POST['student_id'] ?? null,
@@ -61,7 +61,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'department' => $_POST['department'] ?? null
             ];
             $result = $adminManager->createUser($userData);
-            echo json_encode(['success' => $result !== false, 'user_id' => $result]);
+            if ($result !== false) {
+                echo json_encode([
+                    'success' => true, 
+                    'user_id' => $result,
+                    'password' => $userData['password'],
+                    'message' => 'User created successfully! Password: ' . $userData['password']
+                ]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to create user']);
+            }
             exit();
             
         case 'delete_user':
@@ -92,6 +101,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $adminManager = new AdminManager();
             $workload = $adminManager->getAdviserWorkload();
             echo json_encode($workload);
+            exit();
+            
+        case 'get_user':
+            $userId = $_POST['user_id'];
+            $user = $adminManager->getUserById($userId);
+            if ($user) {
+                echo json_encode(['success' => true, 'user' => $user]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'User not found']);
+            }
+            exit();
+            
+        case 'update_user':
+            $userId = $_POST['user_id'];
+            $userData = [
+                'full_name' => $_POST['full_name'],
+                'email' => $_POST['email'],
+                'role' => $_POST['role'],
+                'student_id' => $_POST['student_id'] ?? null,
+                'faculty_id' => $_POST['faculty_id'] ?? null,
+                'program' => $_POST['program'] ?? null,
+                'department' => $_POST['department'] ?? null
+            ];
+            $result = $adminManager->updateUser($userId, $userData);
+            echo json_encode(['success' => $result, 'message' => $result ? 'User updated successfully' : 'Failed to update user']);
             exit();
     }
 }

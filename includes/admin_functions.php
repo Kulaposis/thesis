@@ -167,21 +167,71 @@ class AdminManager {
         }
     }
 
-    public function updateUser($userId, $userData) {
+    public function getUserById($userId) {
         try {
-            $query = "UPDATE users SET full_name = :full_name, role = :role, student_id = :student_id, 
-                     faculty_id = :faculty_id, program = :program, department = :department WHERE id = :id";
-            
+            $query = "SELECT id, email, full_name, role, student_id, faculty_id, program, department, created_at, updated_at 
+                     FROM users WHERE id = :id";
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(':id', $userId);
-            $stmt->bindParam(':full_name', $userData['full_name']);
-            $stmt->bindParam(':role', $userData['role']);
-            $stmt->bindParam(':student_id', $userData['student_id']);
-            $stmt->bindParam(':faculty_id', $userData['faculty_id']);
-            $stmt->bindParam(':program', $userData['program']);
-            $stmt->bindParam(':department', $userData['department']);
+            $stmt->execute();
             
-            if ($stmt->execute()) {
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error getting user by ID: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function updateUser($userId, $userData) {
+        try {
+            // Update email field if provided
+            $updateFields = [];
+            $params = [':id' => $userId];
+            
+            if (isset($userData['email'])) {
+                $updateFields[] = "email = :email";
+                $params[':email'] = $userData['email'];
+            }
+            
+            if (isset($userData['full_name'])) {
+                $updateFields[] = "full_name = :full_name";
+                $params[':full_name'] = $userData['full_name'];
+            }
+            
+            if (isset($userData['role'])) {
+                $updateFields[] = "role = :role";
+                $params[':role'] = $userData['role'];
+            }
+            
+            if (isset($userData['student_id'])) {
+                $updateFields[] = "student_id = :student_id";
+                $params[':student_id'] = $userData['student_id'];
+            }
+            
+            if (isset($userData['faculty_id'])) {
+                $updateFields[] = "faculty_id = :faculty_id";
+                $params[':faculty_id'] = $userData['faculty_id'];
+            }
+            
+            if (isset($userData['program'])) {
+                $updateFields[] = "program = :program";
+                $params[':program'] = $userData['program'];
+            }
+            
+            if (isset($userData['department'])) {
+                $updateFields[] = "department = :department";
+                $params[':department'] = $userData['department'];
+            }
+            
+            if (empty($updateFields)) {
+                return false;
+            }
+            
+            $query = "UPDATE users SET " . implode(', ', $updateFields) . " WHERE id = :id";
+            $stmt = $this->conn->prepare($query);
+            
+            if ($stmt->execute($params)) {
                 $this->logAdminAction('update_user', 'user', $userId, $userData);
                 return true;
             }
@@ -277,8 +327,8 @@ class AdminManager {
         }
     }
 
-    private function generateRandomPassword($length = 8) {
-        $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    public function generateRandomPassword($length = 8) {
+        $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
         $password = '';
         for ($i = 0; $i < $length; $i++) {
             $password .= $characters[rand(0, strlen($characters) - 1)];
