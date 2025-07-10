@@ -1628,6 +1628,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
               } else {
                 // No files uploaded, show no content message
+                window.currentFileId = null; // Clear file ID for fullscreen
                 document.getElementById('document-preview').classList.add('hidden');
                 document.getElementById('adviser-word-document-viewer').innerHTML = `
                   <div class="text-center py-12 text-gray-500 h-full flex flex-col justify-center">
@@ -1653,6 +1654,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 lucide.createIcons();
             } else {
               showError('Failed to load chapter: ' + data.error);
+              window.currentFileId = null; // Clear file ID to prevent fullscreen issues
               // Reset document viewer to show no content
               document.getElementById('adviser-word-document-viewer').innerHTML = `
                 <div class="flex items-center justify-center h-full text-gray-500">
@@ -1670,6 +1672,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           .catch(error => {
             console.error('Error loading chapter:', error);
             showError('Failed to load chapter: ' + error.message);
+            window.currentFileId = null; // Clear file ID to prevent fullscreen issues
             // Reset document viewer to show no content
             document.getElementById('adviser-word-document-viewer').innerHTML = `
               <div class="flex items-center justify-center h-full text-gray-500">
@@ -4142,9 +4145,21 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           const documentViewer = document.getElementById('adviser-word-document-viewer');
           const documentTitle = document.getElementById('document-title').textContent;
           
-          if (documentViewer && documentViewer.innerHTML.trim() !== '') {
+          // Check if we have a valid document loaded
+          if (!window.currentFileId) {
+            showNotification('No document loaded. Please select a chapter with uploaded files to view in fullscreen.', 'warning');
+            return;
+          }
+          
+          // Check if the document viewer contains actual content (not error messages)
+          if (documentViewer && 
+              documentViewer.innerHTML.trim() !== '' && 
+              !documentViewer.innerHTML.includes('No files uploaded') &&
+              !documentViewer.innerHTML.includes('Error Loading Document')) {
             // Create fullscreen view
             openFullscreenView(documentViewer.innerHTML, documentTitle);
+          } else {
+            showNotification('Cannot open fullscreen view. No valid document content available.', 'warning');
           }
         });
       }
@@ -4264,17 +4279,74 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       // Always create a new WordViewer for fullscreen
       const fullscreenContent = fullscreenModal.querySelector('#fullscreen-document-content');
       if (window.currentFileId) {
-        fullscreenContent.innerHTML = '';
-        fullscreenWordViewer = new WordViewer('fullscreen-document-content', {
-          showComments: true,
-          showToolbar: false,
-          allowZoom: true
-        });
-        fullscreenWordViewer.loadDocument(window.currentFileId);
-        fullscreenLoadedFileId = window.currentFileId;
+        // Show loading state first
+        fullscreenContent.innerHTML = '<div class="text-center py-8 text-gray-500"><div class="spinner"></div><p>Loading document...</p></div>';
+        
+        // Initialize the WordViewer
+        try {
+          fullscreenWordViewer = new WordViewer('fullscreen-document-content', {
+            showComments: true,
+            showToolbar: false,
+            allowZoom: true
+          });
+          
+          // Load the document with proper async handling
+          (async () => {
+            try {
+              await fullscreenWordViewer.loadDocument(window.currentFileId);
+              fullscreenLoadedFileId = window.currentFileId;
+              console.log('Fullscreen document loaded successfully');
+              
+              // Enable highlight and comment functionality for fullscreen
+              const fullscreenHighlightBtn = document.getElementById('fullscreen-highlight-btn');
+              const fullscreenCommentBtn = document.getElementById('fullscreen-comment-btn');
+              const fullscreenDocContent = document.getElementById('fullscreen-document-content');
+              
+              if (fullscreenHighlightBtn && fullscreenDocContent) {
+                enableHighlightMode(fullscreenDocContent, fullscreenHighlightBtn);
+              }
+              
+              if (fullscreenCommentBtn && fullscreenDocContent) {
+                enableCommentMode(fullscreenDocContent, fullscreenCommentBtn);
+              }
+              
+            } catch (error) {
+              console.error('Error loading document in fullscreen:', error);
+              fullscreenContent.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                  <i data-lucide="alert-circle" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                  <p class="text-lg font-semibold mb-2">Error Loading Document</p>
+                  <p class="text-sm">Failed to load document in fullscreen mode: ${error.message || 'Unknown error'}</p>
+                  <button onclick="document.getElementById('close-fullscreen').click()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Close</button>
+                </div>
+              `;
+              lucide.createIcons();
+            }
+          })();
+            
+        } catch (error) {
+          console.error('Error initializing WordViewer in fullscreen:', error);
+          fullscreenContent.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <i data-lucide="alert-circle" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+              <p class="text-lg font-semibold mb-2">Initialization Error</p>
+              <p class="text-sm">Failed to initialize document viewer: ${error.message}</p>
+              <button onclick="document.getElementById('close-fullscreen').click()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Close</button>
+            </div>
+          `;
+          lucide.createIcons();
+        }
       } else {
-        fullscreenContent.innerHTML = '<div class="text-center py-8 text-gray-500">No document loaded.</div>';
+        fullscreenContent.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <i data-lucide="file-x" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+            <p class="text-lg font-semibold mb-2">No Document Available</p>
+            <p class="text-sm">Please select a chapter with uploaded files to view in fullscreen.</p>
+            <button onclick="document.getElementById('close-fullscreen').click()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Close</button>
+          </div>
+        `;
         fullscreenLoadedFileId = null;
+        lucide.createIcons();
       }
     }
   </script>
