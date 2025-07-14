@@ -483,7 +483,10 @@ class WordViewer {
     
     openCommentModal(paragraphId, paragraphContent) {
         // Check if we're in the context of the main document review page
-        if (typeof openParagraphCommentModal === 'function') {
+        if (typeof window.openParagraphCommentModal === 'function') {
+            window.openParagraphCommentModal(paragraphId, paragraphContent);
+        } else if (typeof openParagraphCommentModal === 'function') {
+            // Fallback for legacy function
             openParagraphCommentModal(paragraphId, paragraphContent);
         } else {
             // Fallback: create a simple comment modal
@@ -543,6 +546,129 @@ class WordViewer {
         });
     }
     
+    openHighlightCommentModal(highlightId, highlightedText) {
+        // Fallback modal for commenting on highlights when global function isn't available
+        const existingModal = document.getElementById('word-highlight-comment-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        const modal = document.createElement('div');
+        modal.id = 'word-highlight-comment-modal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <h3 class="text-lg font-semibold mb-4">Comment on Highlight</h3>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Highlighted Text:</label>
+                    <div class="p-2 bg-yellow-100 rounded text-sm max-h-32 overflow-y-auto border border-yellow-300">
+                        <mark style="background-color: #fef3c7; padding: 2px 4px; border-radius: 3px;">${highlightedText}</mark>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="word-highlight-comment-text" class="block text-sm font-medium text-gray-700 mb-2">Comment:</label>
+                    <textarea id="word-highlight-comment-text" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your comment about this highlight..."></textarea>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button id="word-cancel-highlight-comment" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
+                    <button id="word-save-highlight-comment" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save Comment</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Add event listeners
+        document.getElementById('word-cancel-highlight-comment').addEventListener('click', () => {
+            modal.remove();
+        });
+        
+        document.getElementById('word-save-highlight-comment').addEventListener('click', () => {
+            const commentText = document.getElementById('word-highlight-comment-text').value.trim();
+            if (commentText) {
+                this.saveHighlightComment(highlightId, commentText);
+                modal.remove();
+            }
+        });
+        
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+    }
+    
+    saveHighlightComment(highlightId, commentText) {
+        if (!window.currentChapterId) {
+            console.error('No current chapter ID');
+            if (typeof showNotification === 'function') {
+                showNotification('Error: No chapter selected', 'error');
+            }
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('action', 'add_comment');
+        formData.append('chapter_id', window.currentChapterId);
+        formData.append('comment_text', commentText);
+        formData.append('highlight_id', highlightId);
+        
+        console.log('Saving highlight comment with data:', {
+            chapter_id: window.currentChapterId,
+            comment_text: commentText,
+            highlight_id: highlightId
+        });
+        
+        const url = 'api/comments.php';
+        
+        fetch(url, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return response.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Failed to parse JSON response:', e);
+                    throw new Error(`Invalid JSON response: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
+                }
+            });
+        })
+        .then(data => {
+            if (data.success) {
+                // Add visual indicator to the highlight
+                const highlightElement = document.querySelector(`[data-highlight-id="${highlightId}"]`);
+                if (highlightElement) {
+                    highlightElement.classList.add('has-comment');
+                    highlightElement.title = highlightElement.title + ' (Has comments)';
+                }
+                
+                // Show success notification
+                if (typeof showNotification === 'function') {
+                    showNotification('Comment added to highlight successfully', 'success');
+                }
+            } else {
+                const errorMessage = data.error || data.message || 'Unknown error occurred';
+                console.error('Failed to save highlight comment:', errorMessage);
+                if (typeof showNotification === 'function') {
+                    showNotification('Failed to add comment to highlight: ' + errorMessage, 'error');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error saving highlight comment:', error);
+            if (typeof showNotification === 'function') {
+                showNotification('Error adding comment to highlight: ' + error.message, 'error');
+            }
+        });
+    }
+
     saveComment(paragraphId, commentText) {
         if (!window.currentChapterId) {
             console.error('No current chapter ID');
@@ -666,6 +792,18 @@ class WordViewer {
                         highlightSpan.style.backgroundColor = window.currentHighlightColor || '#ffeb3b';
                         highlightSpan.className = 'highlight-marker';
                         highlightSpan.dataset.highlightId = data.highlight_id;
+                        
+                        // Add click handler for commenting on highlights
+                        highlightSpan.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (typeof window.openHighlightCommentModal === 'function') {
+                                window.openHighlightCommentModal(data.highlight_id, window.selectedText, window.currentChapterId);
+                            } else {
+                                // Fallback modal
+                                this.openHighlightCommentModal(data.highlight_id, window.selectedText);
+                            }
+                        });
                         
                         // Add context menu for removing highlights
                         highlightSpan.addEventListener('contextmenu', (e) => {

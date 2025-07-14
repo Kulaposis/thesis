@@ -474,6 +474,210 @@
     transform: scale(1.02);
 }
 
+/* Highlight marker styles */
+.highlight-marker {
+    background: linear-gradient(120deg, #fef3c7 0%, #fbbf24 20%, #fef3c7 100%);
+    padding: 2px 4px;
+    border-radius: 3px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.highlight-marker:hover {
+    background: linear-gradient(120deg, #fed7aa 0%, #f97316 20%, #fed7aa 100%);
+    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Highlights with comments */
+.highlight-marker.has-comment {
+    border: 1px solid #3b82f6;
+    box-shadow: 0 0 0 1px #3b82f6;
+    background: linear-gradient(120deg, #dbeafe 0%, #3b82f6 20%, #dbeafe 100%);
+}
+
+.highlight-marker.has-comment:hover {
+    background: linear-gradient(120deg, #bfdbfe 0%, #2563eb 20%, #bfdbfe 100%);
+    transform: scale(1.05);
+}
+
+/* Click instruction for highlights */
+.highlight-marker::before {
+    content: "Click to comment";
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+}
+
+.highlight-marker:hover::before {
+    opacity: 1;
+}
+
+/* Student view highlights - clean yellow styling */
+.highlight-marker.student-view-highlight {
+    background: rgba(251, 191, 36, 0.15) !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 2px solid rgba(245, 158, 11, 0.6) !important;
+    border-radius: 4px !important;
+    padding: 2px 4px !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    position: relative !important;
+    display: inline !important;
+    box-shadow: none !important;
+    color: inherit !important;
+}
+
+.highlight-marker.student-view-highlight:hover {
+    background: rgba(251, 191, 36, 0.25) !important;
+    background-image: none !important;
+    border-bottom-color: rgba(245, 158, 11, 0.8) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.2) !important;
+}
+
+.highlight-marker.student-view-highlight::before {
+    content: "💡 Adviser Note";
+    background: #d97706 !important;
+    color: white !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    padding: 6px 10px !important;
+    border-radius: 6px !important;
+    white-space: nowrap !important;
+    opacity: 0 !important;
+    transition: all 0.3s ease !important;
+    position: absolute !important;
+    bottom: -32px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 1000 !important;
+    pointer-events: none !important;
+    box-shadow: 0 3px 12px rgba(217, 119, 6, 0.3) !important;
+}
+
+.highlight-marker.student-view-highlight:hover::before {
+    opacity: 1 !important;
+}
+
+/* Remove the emoji indicator - keep it clean */
+.highlight-marker.student-view-highlight::after {
+    display: none !important;
+}
+
+/* Additional overrides to ensure clean student highlights */
+.highlight-marker.student-view-highlight.text-highlight,
+.highlight-marker.student-view-highlight.text-highlight.blue,
+.highlight-marker.student-view-highlight.text-highlight.green,
+.highlight-marker.student-view-highlight.text-highlight.red,
+.highlight-marker.student-view-highlight.text-highlight.purple {
+    background: rgba(251, 191, 36, 0.15) !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 2px solid rgba(245, 158, 11, 0.6) !important;
+}
+
+.highlight-marker.student-view-highlight.text-highlight:hover,
+.highlight-marker.student-view-highlight.text-highlight.blue:hover,
+.highlight-marker.student-view-highlight.text-highlight.green:hover,
+.highlight-marker.student-view-highlight.text-highlight.red:hover,
+.highlight-marker.student-view-highlight.text-highlight.purple:hover {
+    background: rgba(251, 191, 36, 0.25) !important;
+    background-image: none !important;
+    border-bottom-color: rgba(245, 158, 11, 0.8) !important;
+}
+
+/* Fullscreen additional overrides */
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight,
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight.blue,
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight.green,
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight.red,
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight.purple {
+    background: rgba(251, 191, 36, 0.15) !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 2px solid rgba(245, 158, 11, 0.6) !important;
+}
+
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight:hover,
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight.blue:hover,
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight.green:hover,
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight.red:hover,
+.document-fullscreen-modal .highlight-marker.student-view-highlight.text-highlight.purple:hover {
+    background: rgba(251, 191, 36, 0.25) !important;
+    background-image: none !important;
+    border-bottom-color: rgba(245, 158, 11, 0.8) !important;
+}
+
+/* Fullscreen student highlights - ensure they work in fullscreen mode */
+.fullscreen-student-highlight {
+    z-index: 10;
+    position: relative;
+}
+
+.document-fullscreen-modal .highlight-marker.student-view-highlight {
+    background: rgba(251, 191, 36, 0.15) !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 2px solid rgba(245, 158, 11, 0.6) !important;
+    border-radius: 4px !important;
+    padding: 2px 4px !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    box-shadow: none !important;
+    color: inherit !important;
+}
+
+.document-fullscreen-modal .highlight-marker.student-view-highlight:hover {
+    background: rgba(251, 191, 36, 0.25) !important;
+    background-image: none !important;
+    border-bottom-color: rgba(245, 158, 11, 0.8) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.2) !important;
+}
+
+.document-fullscreen-modal .highlight-marker.student-view-highlight::before {
+    content: "💡 Adviser Note";
+    background: #d97706 !important;
+    color: white !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    white-space: nowrap !important;
+    opacity: 0 !important;
+    transition: all 0.3s ease !important;
+    position: absolute !important;
+    bottom: -36px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 1000 !important;
+    pointer-events: none !important;
+    box-shadow: 0 4px 15px rgba(217, 119, 6, 0.3) !important;
+}
+
+.document-fullscreen-modal .highlight-marker.student-view-highlight:hover::before {
+    opacity: 1 !important;
+}
+
+.document-fullscreen-modal .highlight-marker.student-view-highlight::after {
+    display: none !important;
+}
+
 .text-highlight.blue {
     background: linear-gradient(120deg, #dbeafe 0%, #3b82f6 20%, #dbeafe 100%);
 }
@@ -936,12 +1140,65 @@
   border-radius: 2px;
   padding: 1px 2px;
   transition: all 0.2s ease;
+  background-color: #ffeb3b !important;
+  display: inline !important;
+  z-index: 1 !important;
 }
 
 .fullscreen-highlight:hover {
   transform: scale(1.02);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  z-index: 10;
+  z-index: 10 !important;
+}
+
+/* Enhanced fullscreen highlight styles */
+.document-fullscreen-modal .fullscreen-highlight {
+  background-color: #ffeb3b !important;
+  color: inherit !important;
+  display: inline !important;
+  position: relative !important;
+  z-index: 1 !important;
+  padding: 2px 4px !important;
+  border-radius: 3px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.document-fullscreen-modal .highlight-marker {
+  background: linear-gradient(120deg, #fef3c7 0%, #fbbf24 20%, #fef3c7 100%) !important;
+  padding: 2px 4px !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: inline !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Ensure all fullscreen highlights are visible regardless of class combination */
+.document-fullscreen-modal .highlight-marker.fullscreen-highlight,
+.document-fullscreen-modal mark.highlight-marker,
+.document-fullscreen-modal mark.fullscreen-highlight {
+  background-color: #ffeb3b !important;
+  color: inherit !important;
+  display: inline !important;
+  position: relative !important;
+  z-index: 1 !important;
+  padding: 2px 4px !important;
+  border-radius: 3px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+}
+
+.document-fullscreen-modal .highlight-marker:hover {
+  background: linear-gradient(120deg, #fed7aa 0%, #f97316 20%, #fed7aa 100%) !important;
+  transform: scale(1.02) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  z-index: 10 !important;
 }
 
 /* Color Picker Styling */
@@ -1130,4 +1387,84 @@
   background: #dcfce7 !important;
   border-color: #4ade80 !important;
   color: #15803d !important;
+} 
+
+/* --- UNIVERSAL STUDENT HIGHLIGHT OVERRIDES --- */
+/* Applies to all highlight types for student view */
+.highlight-marker.student-view-highlight,
+.text-highlight.student-view-highlight,
+.highlight-marker.student-view-highlight.text-highlight,
+.highlight-marker.student-view-highlight.text-highlight.blue,
+.highlight-marker.student-view-highlight.text-highlight.green,
+.highlight-marker.student-view-highlight.text-highlight.red,
+.highlight-marker.student-view-highlight.text-highlight.purple {
+    background: linear-gradient(to bottom, rgba(255, 237, 134, 0.4), rgba(251, 191, 36, 0.2)) !important;
+    background-image: linear-gradient(to bottom, rgba(255, 237, 134, 0.4), rgba(251, 191, 36, 0.2)) !important;
+    color: #1a1a1a !important;
+    border: none !important;
+    border-bottom: 1.5px solid #f59e0b !important; /* yellow-500 */
+    border-radius: 3px !important;
+    box-shadow: 0 1px 3px rgba(251, 191, 36, 0.08) !important;
+    padding: 1px 3px !important;
+    margin: 0 !important;
+    display: inline !important;
+    position: relative !important;
+    font-weight: inherit !important;
+    transition: all 0.15s ease !important;
+}
+
+.highlight-marker.student-view-highlight:hover,
+.text-highlight.student-view-highlight:hover {
+    background: rgba(251, 191, 36, 0.35) !important;
+    border-bottom-color: #d97706 !important; /* yellow-600 */
+    box-shadow: 0 4px 16px rgba(251, 191, 36, 0.18) !important;
+    z-index: 10 !important;
+}
+
+/* Tooltip for adviser note */
+.highlight-marker.student-view-highlight::before,
+.text-highlight.student-view-highlight::before {
+    content: "💡 Adviser Note";
+    background: #d97706 !important;
+    color: #fff !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    padding: 7px 14px !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
+    opacity: 0 !important;
+    transition: all 0.2s cubic-bezier(.4,0,.2,1) !important;
+    position: absolute !important;
+    bottom: -38px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 1000 !important;
+    pointer-events: none !important;
+    box-shadow: 0 6px 24px rgba(217, 119, 6, 0.18) !important;
+}
+
+.highlight-marker.student-view-highlight:hover::before,
+.text-highlight.student-view-highlight:hover::before {
+    opacity: 1 !important;
+}
+
+/* Remove any after/emoji indicator */
+.highlight-marker.student-view-highlight::after,
+.text-highlight.student-view-highlight::after {
+    display: none !important;
+}
+
+/* Fullscreen modal overrides */
+.document-fullscreen-modal .highlight-marker.student-view-highlight,
+.document-fullscreen-modal .text-highlight.student-view-highlight {
+    background: rgba(251, 191, 36, 0.25) !important;
+    border-bottom: 2.5px solid #f59e0b !important;
+    box-shadow: 0 4px 16px rgba(251, 191, 36, 0.18) !important;
+}
+
+.document-fullscreen-modal .highlight-marker.student-view-highlight:hover,
+.document-fullscreen-modal .text-highlight.student-view-highlight:hover {
+    background: rgba(251, 191, 36, 0.35) !important;
+    border-bottom-color: #d97706 !important;
+    box-shadow: 0 8px 32px rgba(251, 191, 36, 0.22) !important;
 } 

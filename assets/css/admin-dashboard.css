@@ -216,10 +216,21 @@
   min-height: 260px;
   height: 320px;
   margin-bottom: 1.5rem;
+  position: relative;
+  width: 100%;
 }
-#departmentChart {
-  min-height: 160px;
-  height: 200px;
+
+.chart-container canvas {
+  min-height: 200px !important;
+  height: 250px !important;
+  width: 100% !important;
+  display: block;
+}
+
+#departmentChart, #activityChart, #adviserWorkloadChart {
+  min-height: 200px;
+  height: 250px;
+  width: 100%;
 }
 
 /* Minimalist Search Container */

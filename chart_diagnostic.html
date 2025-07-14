@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart.js Diagnostic</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .chart-container { width: 400px; height: 300px; margin: 20px 0; background: #fff; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>Chart.js Diagnostic Test</h1>
+    
+    <div id="results"></div>
+    
+    <div class="chart-container">
+        <canvas id="testChart" width="400" height="300"></canvas>
+    </div>
+
+    <script>
+        function addResult(message, isSuccess = true) {
+            const div = document.createElement('div');
+            div.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+            div.textContent = message;
+            document.getElementById('results').appendChild(div);
+            console.log(message);
+        }
+
+        function runDiagnostics() {
+            addResult('Starting Chart.js diagnostic...');
+            
+            // Test 1: Check if Chart.js is loaded
+            if (typeof Chart !== 'undefined') {
+                addResult('✓ Chart.js is loaded successfully');
+                addResult(`Chart.js version: ${Chart.version || 'Unknown'}`);
+            } else {
+                addResult('✗ Chart.js is NOT loaded', false);
+                return;
+            }
+            
+            // Test 2: Check canvas element
+            const canvas = document.getElementById('testChart');
+            if (canvas) {
+                addResult('✓ Canvas element found');
+                const rect = canvas.getBoundingClientRect();
+                addResult(`Canvas dimensions: ${rect.width}x${rect.height}`);
+            } else {
+                addResult('✗ Canvas element not found', false);
+                return;
+            }
+            
+            // Test 3: Try to create a simple chart
+            try {
+                const ctx = canvas.getContext('2d');
+                const chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Test 1', 'Test 2', 'Test 3'],
+                        datasets: [{
+                            label: 'Test Data',
+                            data: [12, 19, 3],
+                            backgroundColor: ['red', 'blue', 'green']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Test Chart'
+                            }
+                        }
+                    }
+                });
+                addResult('✓ Test chart created successfully');
+            } catch (error) {
+                addResult(`✗ Failed to create chart: ${error.message}`, false);
+            }
+        }
+
+        // Run diagnostics when page loads
+        window.addEventListener('load', runDiagnostics);
+        
+        // Also try with a delay
+        setTimeout(runDiagnostics, 1000);
+    </script>
+</body>
+</html> 

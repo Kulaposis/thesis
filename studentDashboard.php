@@ -695,9 +695,16 @@ if ($thesis) {
     function loadStudentChapter(chapterId, chapterTitle) {
       studentCurrentChapterId = chapterId;
       
+      // Clear cached content element when switching chapters
+      window.studentContentElement = null;
+      
       // Update document title
       document.getElementById('student-document-title').textContent = chapterTitle;
       document.getElementById('student-document-info').textContent = 'Loading chapter content...';
+      
+      // PRELOAD highlights immediately when chapter is selected
+      console.log('[PRELOAD] Starting highlight preload for chapter:', chapterId);
+      window.preloadHighlights(chapterId);
       
       // Load chapter data first to get files
       fetch(`api/student_review.php?action=get_chapter&chapter_id=${chapterId}`)
@@ -766,7 +773,40 @@ if ($thesis) {
       });
       
       // Load the document
-      wordViewer.loadDocument(fileId);
+      wordViewer.loadDocument(fileId).then(() => {
+        // Load existing highlights and comments after document loads
+        if (studentCurrentChapterId) {
+          console.log('Loading highlights and comments for student chapter:', studentCurrentChapterId);
+          
+          // Optimized loading with immediate start and smart retries
+          let loadAttempts = 0;
+          const maxAttempts = 2; // Reduced from 3 to 2
+          
+          const loadHighlightsWithRetry = () => {
+            loadAttempts++;
+            console.log(`Loading highlights attempt ${loadAttempts}`);
+            
+            window.loadHighlights(studentCurrentChapterId);
+            window.loadComments(studentCurrentChapterId);
+            
+            // Smart retry only if content isn't ready yet
+            if (loadAttempts < maxAttempts) {
+              const hasContent = document.querySelector('.word-content') || 
+                               document.querySelector('.student-chapter-content') ||
+                               document.querySelector('#word-viewer-content');
+              
+              if (!hasContent || !hasContent.textContent.trim()) {
+                setTimeout(loadHighlightsWithRetry, 100); // Reduced from 200ms to 100ms
+              }
+            }
+          };
+          
+          // Start loading immediately with no delay
+          loadHighlightsWithRetry();
+        }
+      }).catch(error => {
+        console.error('Error loading document:', error);
+      });
       
       // Show the fullscreen button
       const fullscreenBtn = document.getElementById('student-fullscreen-btn');
@@ -823,6 +863,13 @@ if ($thesis) {
           </div>
         </div>
       `;
+      
+      // Load highlights and comments for text content as well - OPTIMIZED
+      if (studentCurrentChapterId) {
+        // Immediate loading for text content since DOM is ready
+        window.loadHighlights(studentCurrentChapterId);
+        window.loadComments(studentCurrentChapterId);
+      }
       
       // Hide fullscreen button for text content
       const fullscreenBtn = document.getElementById('student-fullscreen-btn');
@@ -1420,6 +1467,28 @@ if ($thesis) {
                    
                    console.log('[Student Fullscreen] Document loaded successfully');
                    
+                   // Load highlights and comments for fullscreen view - OPTIMIZED
+                   if (studentCurrentChapterId) {
+                     console.log('[Student Fullscreen] Loading highlights and comments...');
+                     
+                     // OPTIMIZATION 6: Use cached highlights for instant loading
+                     if (window.cachedHighlights && 
+                         window.cachedHighlights.chapterId == studentCurrentChapterId &&
+                         (Date.now() - window.cachedHighlights.timestamp) < 30000) {
+                       console.log('[FULLSCREEN INSTANT] Using cached highlights for instant loading');
+                       setTimeout(() => {
+                         applyHighlightsToFullscreen(window.cachedHighlights.highlights);
+                         window.loadComments(studentCurrentChapterId);
+                       }, 100); // Ultra-fast for cached highlights
+                     } else {
+                       console.log('[FULLSCREEN] Loading highlights from server');
+                       setTimeout(() => {
+                         loadHighlightsForFullscreen(studentCurrentChapterId);
+                         window.loadComments(studentCurrentChapterId);
+                       }, 200); // Significantly reduced from 1500ms to 200ms
+                     }
+                   }
+                   
                    // Restore original title
                    titleElement.textContent = originalTitle;
                    return; // Success, exit function
@@ -1570,6 +1639,29 @@ if ($thesis) {
               .then(() => {
                 clearTimeout(reloadTimeout);
                 console.log('[Student Force Reload] Document loaded successfully');
+                
+                                 // Load highlights and comments for force reload - ULTRA OPTIMIZED
+                 if (studentCurrentChapterId) {
+                   console.log('[Student Force Reload] Loading highlights and comments...');
+                   
+                   // OPTIMIZATION 5: Immediate loading with cached highlights
+                   if (window.cachedHighlights && 
+                       window.cachedHighlights.chapterId == studentCurrentChapterId &&
+                       (Date.now() - window.cachedHighlights.timestamp) < 30000) {
+                     console.log('[FULLSCREEN INSTANT] Using cached highlights immediately');
+                     // Apply highlights immediately with minimal delay
+                     setTimeout(() => {
+                       applyHighlightsToFullscreen(window.cachedHighlights.highlights);
+                       window.loadComments(studentCurrentChapterId);
+                     }, 100); // Ultra-fast for cached highlights
+                   } else {
+                     // Fallback to loading highlights
+                     setTimeout(() => {
+                       loadHighlightsForFullscreen(studentCurrentChapterId);
+                       window.loadComments(studentCurrentChapterId);
+                     }, 200); // Reduced from 300ms to 200ms
+                   }
+                 }
               })
               .catch(error => {
                 clearTimeout(reloadTimeout);
@@ -1628,6 +1720,605 @@ if ($thesis) {
         lucide.createIcons();
       }
     };
+
+    // Load existing comments - moved to global scope
+    window.loadComments = function(chapterId) {
+      fetch(`api/document_review.php?action=get_comments&chapter_id=${chapterId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            displayComments(data.comments);
+          }
+        })
+        .catch(error => console.error('Error loading comments:', error));
+    };
+
+    // PRELOAD highlights - fetch and cache before content is ready
+    window.preloadHighlights = function(chapterId) {
+      console.log('[PRELOAD] Fetching highlights for chapter:', chapterId);
+      fetch(`api/student_review.php?action=get_highlights&chapter_id=${chapterId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            console.log('[PRELOAD] Highlights fetched and cached:', data.highlights.length);
+            // Cache the highlights for immediate use
+            window.cachedHighlights = {
+              chapterId: chapterId,
+              highlights: data.highlights,
+              timestamp: Date.now()
+            };
+          } else {
+            console.error('[PRELOAD] Failed to fetch highlights:', data.error);
+          }
+        })
+        .catch(error => console.error('[PRELOAD] Error fetching highlights:', error));
+    };
+
+    // Load existing highlights - for students to see adviser highlights - OPTIMIZED
+    window.loadHighlights = function(chapterId) {
+      console.log('Loading highlights for chapter:', chapterId);
+      
+      // Check if we have cached highlights for this chapter (less than 30 seconds old)
+      if (window.cachedHighlights && 
+          window.cachedHighlights.chapterId == chapterId &&
+          (Date.now() - window.cachedHighlights.timestamp) < 30000) {
+        console.log('[CACHE HIT] Using cached highlights:', window.cachedHighlights.highlights.length);
+        applyHighlightsForStudents(window.cachedHighlights.highlights);
+        return;
+      }
+      
+      console.log('[CACHE MISS] Fetching highlights from server');
+      fetch(`api/student_review.php?action=get_highlights&chapter_id=${chapterId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            console.log('Highlights loaded:', data.highlights);
+            // Update cache
+            window.cachedHighlights = {
+              chapterId: chapterId,
+              highlights: data.highlights,
+              timestamp: Date.now()
+            };
+            applyHighlightsForStudents(data.highlights);
+          } else {
+            console.error('Failed to load highlights:', data.error);
+          }
+        })
+        .catch(error => console.error('Error loading highlights:', error));
+    };
+
+    // Load highlights specifically for fullscreen view - OPTIMIZED
+    function loadHighlightsForFullscreen(chapterId) {
+      console.log('[FULLSCREEN] Loading highlights for fullscreen chapter:', chapterId);
+      
+      // OPTIMIZATION 1: Use cached highlights if available
+      if (window.cachedHighlights && 
+          window.cachedHighlights.chapterId == chapterId &&
+          (Date.now() - window.cachedHighlights.timestamp) < 30000) {
+        console.log('[FULLSCREEN CACHE HIT] Using cached highlights:', window.cachedHighlights.highlights.length);
+        applyHighlightsToFullscreen(window.cachedHighlights.highlights);
+        return;
+      }
+      
+      console.log('[FULLSCREEN CACHE MISS] Fetching highlights from server');
+      fetch(`api/student_review.php?action=get_highlights&chapter_id=${chapterId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            console.log('[FULLSCREEN] Highlights loaded:', data.highlights);
+            // Update cache for future use
+            window.cachedHighlights = {
+              chapterId: chapterId,
+              highlights: data.highlights,
+              timestamp: Date.now()
+            };
+            applyHighlightsToFullscreen(data.highlights);
+          } else {
+            console.error('[FULLSCREEN] Failed to load highlights:', data.error);
+          }
+        })
+        .catch(error => console.error('[FULLSCREEN] Error loading highlights:', error));
+    }
+
+    // Apply highlights for students (read-only view) - OPTIMIZED
+    function applyHighlightsForStudents(highlights) {
+      if (!highlights || highlights.length === 0) {
+        console.log('No highlights to apply');
+        return;
+      }
+
+      console.log('Applying', highlights.length, 'highlights for student view');
+      
+      // Check if content is ready immediately
+      const contentReady = document.querySelector('.word-content') || 
+                          document.querySelector('.student-chapter-content') ||
+                          document.querySelector('#word-viewer-content');
+      
+      if (contentReady && contentReady.textContent.trim().length > 50) {
+        // Content is ready, apply highlights immediately
+        console.log('Content ready, applying highlights immediately');
+        highlights.forEach(highlight => {
+          console.log('Processing highlight:', highlight);
+          applyHighlightToContent(highlight);
+        });
+      } else {
+        // Content not ready, use minimal delay with retry
+        console.log('Content not ready, using minimal delay');
+        setTimeout(() => {
+          highlights.forEach(highlight => {
+            console.log('Processing highlight:', highlight);
+            applyHighlightToContent(highlight);
+          });
+        }, 100); // Reduced from 500ms to 100ms
+      }
+    }
+
+    // Apply highlights specifically for fullscreen view - ULTRA OPTIMIZED
+    function applyHighlightsToFullscreen(highlights) {
+      if (!highlights || highlights.length === 0) {
+        console.log('[FULLSCREEN] No highlights to apply to fullscreen');
+        return;
+      }
+
+      console.log('[FULLSCREEN] Applying', highlights.length, 'highlights to fullscreen view');
+      
+      // OPTIMIZATION 2: Try immediate application first
+      const fullscreenContent = document.querySelector('#student-fullscreen-document-content');
+      if (fullscreenContent && fullscreenContent.textContent && fullscreenContent.textContent.trim().length > 50) {
+        console.log('[FULLSCREEN IMMEDIATE] Content ready, applying highlights immediately');
+        let appliedCount = 0;
+        
+        highlights.forEach(highlight => {
+          if (applyHighlightToFullscreenContent(highlight, fullscreenContent)) {
+            appliedCount++;
+          }
+        });
+        
+        console.log(`[FULLSCREEN IMMEDIATE] Applied ${appliedCount}/${highlights.length} highlights`);
+        
+        // If all highlights applied successfully, we're done
+        if (appliedCount === highlights.length) {
+          return;
+        }
+      }
+      
+      // OPTIMIZATION 3: Fast retry mechanism with reduced attempts
+      let retryCount = 0;
+      const maxRetries = 3; // Reduced from 5 to 3
+      
+      function tryApplyHighlights() {
+        retryCount++;
+        console.log(`[FULLSCREEN RETRY] Attempt ${retryCount}/${maxRetries}`);
+        
+        const fullscreenContent = document.querySelector('#student-fullscreen-document-content');
+        if (!fullscreenContent) {
+          console.error('[FULLSCREEN] Content container not found');
+          if (retryCount < maxRetries) {
+            setTimeout(tryApplyHighlights, 100); // Reduced from 200ms to 100ms
+          }
+          return;
+        }
+
+        // Quick content check
+        const hasTextContent = fullscreenContent.textContent && fullscreenContent.textContent.trim().length > 50;
+        if (!hasTextContent) {
+          console.log('[FULLSCREEN] Content not ready yet, retrying...');
+          if (retryCount < maxRetries) {
+            setTimeout(tryApplyHighlights, 100); // Reduced from 200ms to 100ms
+          }
+          return;
+        }
+
+        console.log('[FULLSCREEN] Content ready, applying highlights...');
+        let appliedCount = 0;
+        
+        highlights.forEach(highlight => {
+          if (applyHighlightToFullscreenContent(highlight, fullscreenContent)) {
+            appliedCount++;
+          }
+        });
+        
+        console.log(`[FULLSCREEN] Applied ${appliedCount}/${highlights.length} highlights`);
+        
+        // Only retry if we didn't apply many highlights and haven't reached max retries
+        if (appliedCount < Math.max(1, highlights.length * 0.5) && retryCount < maxRetries) {
+          console.log('[FULLSCREEN] Some highlights missing, retrying...');
+          setTimeout(tryApplyHighlights, 100); // Reduced from 200ms to 100ms
+        }
+      }
+      
+      // OPTIMIZATION 4: Start with ultra-minimal delay
+      setTimeout(tryApplyHighlights, 50); // Reduced from 200ms to 50ms
+    }
+
+    // Apply individual highlight to content - OPTIMIZED
+    function applyHighlightToContent(highlight) {
+      // Optimized selector priority - most common first for better performance
+      const prioritizedSelectors = [
+        '.word-content',                                    // Most common - WordViewer content
+        '#word-viewer-content',                            // Second most common - Direct container
+        '.student-chapter-content',                        // Text content fallback
+        '.chapter-content',                                 // Legacy content
+        '.word-document',                                   // Document container
+        '#student-fullscreen-document-content .word-content', // Fullscreen specific
+        '#student-fullscreen-document-content',            // Direct fullscreen container
+        '#student-fullscreen-document-content .word-document', // Fullscreen document
+        '.fullscreen-document .word-content'               // Alternative fullscreen content
+      ];
+
+      let contentElement = null;
+      
+      // Fast path - check if we already have content cached
+      if (window.studentContentElement && window.studentContentElement.textContent.trim()) {
+        contentElement = window.studentContentElement;
+        console.log('Using cached content element');
+      } else {
+        // Find and cache content element
+        for (const selector of prioritizedSelectors) {
+          contentElement = document.querySelector(selector);
+          if (contentElement && contentElement.textContent.trim().length > 50) {
+            console.log('Found content element with selector:', selector);
+            window.studentContentElement = contentElement; // Cache for future use
+            break;
+          }
+        }
+      }
+
+      if (!contentElement) {
+        console.log('No content element found for highlight application');
+        console.log('Available elements:', document.querySelectorAll('*[id*="content"], *[class*="content"], *[class*="word"]'));
+        return;
+      }
+
+      // Find text nodes containing the highlighted text
+      const walker = document.createTreeWalker(
+        contentElement,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+
+      let node;
+      while (node = walker.nextNode()) {
+        const text = node.textContent;
+        const highlightText = highlight.highlighted_text;
+        const index = text.indexOf(highlightText);
+
+        if (index !== -1) {
+          console.log('Found matching text for highlight:', highlightText);
+          
+          try {
+            // Create highlight span
+            const highlightSpan = document.createElement('mark');
+            highlightSpan.style.backgroundColor = highlight.highlight_color || '#ffeb3b';
+            highlightSpan.className = 'highlight-marker student-view-highlight';
+            highlightSpan.dataset.highlightId = highlight.id;
+            highlightSpan.title = `Highlighted by ${highlight.adviser_name}`;
+            highlightSpan.style.cursor = 'help';
+            highlightSpan.style.position = 'relative';
+
+            // Add click handler to show highlight info
+            highlightSpan.addEventListener('click', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              showHighlightInfo(highlight);
+            });
+
+            // Split the text node and wrap the highlighted portion
+            const beforeText = text.substring(0, index);
+            const afterText = text.substring(index + highlightText.length);
+
+            if (beforeText) {
+              const beforeNode = document.createTextNode(beforeText);
+              node.parentNode.insertBefore(beforeNode, node);
+            }
+
+            highlightSpan.textContent = highlightText;
+            node.parentNode.insertBefore(highlightSpan, node);
+
+            if (afterText) {
+              const afterNode = document.createTextNode(afterText);
+              node.parentNode.insertBefore(afterNode, node);
+            }
+
+            // Remove the original text node
+            node.parentNode.removeChild(node);
+            console.log('Successfully applied highlight to text');
+            break; // Found and processed this highlight
+          } catch (e) {
+            console.error('Error applying highlight:', e);
+          }
+        }
+      }
+    }
+
+    // Apply individual highlight to fullscreen content
+    function applyHighlightToFullscreenContent(highlight, fullscreenContainer) {
+      // Look for content within the fullscreen container
+      const possibleSelectors = [
+        '.word-content',
+        '.word-document',
+        '.word-page',
+        ''  // Empty string means search in the container itself
+      ];
+
+      let contentElement = null;
+      for (const selector of possibleSelectors) {
+        if (selector === '') {
+          contentElement = fullscreenContainer;
+        } else {
+          contentElement = fullscreenContainer.querySelector(selector);
+        }
+        
+        if (contentElement && contentElement.textContent.trim()) {
+          console.log('Found fullscreen content element with selector:', selector || 'container');
+          break;
+        }
+      }
+
+      if (!contentElement) {
+        console.log('No fullscreen content element found for highlight application');
+        console.log('Fullscreen container content:', fullscreenContainer.innerHTML.substring(0, 200));
+        return false;
+      }
+
+      // Find text nodes containing the highlighted text
+      const walker = document.createTreeWalker(
+        contentElement,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+
+      let node;
+      while (node = walker.nextNode()) {
+        const text = node.textContent;
+        const highlightText = highlight.highlighted_text;
+        const index = text.indexOf(highlightText);
+
+        if (index !== -1) {
+          console.log('Found matching text for fullscreen highlight:', highlightText);
+          
+          try {
+            // Create highlight span
+            const highlightSpan = document.createElement('mark');
+            highlightSpan.style.backgroundColor = highlight.highlight_color || '#ffeb3b';
+            highlightSpan.className = 'highlight-marker student-view-highlight fullscreen-student-highlight';
+            highlightSpan.dataset.highlightId = highlight.id;
+            highlightSpan.title = `Highlighted by ${highlight.adviser_name}`;
+            highlightSpan.style.cursor = 'help';
+            highlightSpan.style.position = 'relative';
+
+            // Add click handler to show highlight info
+            highlightSpan.addEventListener('click', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              showHighlightInfo(highlight);
+            });
+
+            // Split the text node and wrap the highlighted portion
+            const beforeText = text.substring(0, index);
+            const afterText = text.substring(index + highlightText.length);
+
+            if (beforeText) {
+              const beforeNode = document.createTextNode(beforeText);
+              node.parentNode.insertBefore(beforeNode, node);
+            }
+
+            highlightSpan.textContent = highlightText;
+            node.parentNode.insertBefore(highlightSpan, node);
+
+            if (afterText) {
+              const afterNode = document.createTextNode(afterText);
+              node.parentNode.insertBefore(afterNode, node);
+            }
+
+            // Remove the original text node
+            node.parentNode.removeChild(node);
+            console.log('Successfully applied fullscreen highlight to text');
+            return true; // Success
+          } catch (e) {
+            console.error('Error applying fullscreen highlight:', e);
+            return false;
+          }
+        }
+      }
+      
+      console.log('Highlight text not found in fullscreen content:', highlight.highlighted_text);
+      return false; // Text not found
+    }
+
+    // Show highlight information when student clicks on a highlight - ENHANCED
+    function showHighlightInfo(highlight) {
+      // Check if we're in fullscreen mode
+      const isFullscreen = document.querySelector('.document-fullscreen-modal.active') !== null;
+      const modalId = isFullscreen ? 'fullscreen-highlight-info-modal' : 'highlight-info-modal';
+      const zIndex = isFullscreen ? 'z-[9999]' : 'z-50'; // Higher z-index for fullscreen
+      
+      console.log('[HIGHLIGHT INFO] Showing highlight info, fullscreen:', isFullscreen);
+      
+      // Create a modal to show highlight details with comments
+      const existingModal = document.getElementById(modalId);
+      if (existingModal) {
+        existingModal.remove();
+      }
+
+      // Create the modal structure first
+      const modal = document.createElement('div');
+      modal.id = modalId;
+      modal.className = `fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center ${zIndex}`;
+      
+      // Show loading state first
+      modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto shadow-2xl">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">💡 Adviser Note</h3>
+            <button class="close-modal-btn text-gray-500 hover:text-gray-700" onclick="document.getElementById('${modalId}').remove()">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+            <p class="text-sm text-gray-500">Loading highlight details...</p>
+          </div>
+        </div>
+      `;
+
+      // Add to appropriate container
+      if (isFullscreen) {
+        const fullscreenModal = document.querySelector('.document-fullscreen-modal.active');
+        if (fullscreenModal) {
+          fullscreenModal.appendChild(modal);
+        } else {
+          document.body.appendChild(modal);
+        }
+      } else {
+        document.body.appendChild(modal);
+      }
+
+      // Fetch comments for this highlight
+      fetchHighlightComments(highlight.id)
+        .then(comments => {
+          // Update modal with full content including comments
+          const modalContent = modal.querySelector('.bg-white');
+          modalContent.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold flex items-center gap-2">
+                💡 <span>Adviser Note</span>
+              </h3>
+              <button class="close-modal-btn text-gray-500 hover:text-gray-700" onclick="document.getElementById('${modalId}').remove()">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            
+            <!-- Adviser Info -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Highlighted by:</label>
+              <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                  ${highlight.adviser_name ? highlight.adviser_name.charAt(0).toUpperCase() : 'A'}
+                </div>
+                <div>
+                  <span class="font-medium text-blue-900">${highlight.adviser_name || 'Adviser'}</span>
+                  <p class="text-xs text-blue-600">${new Date(highlight.created_at).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Highlighted Text -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Highlighted Text:</label>
+              <div class="p-4 rounded-lg border border-yellow-300 bg-gradient-to-r from-yellow-50 to-orange-50">
+                <mark style="background: linear-gradient(135deg, ${highlight.highlight_color || '#ffeb3b'}, ${highlight.highlight_color || '#ffeb3b'}88); padding: 4px 8px; border-radius: 6px; font-weight: 500; border: 1px solid #d97706;">
+                  "${highlight.highlighted_text}"
+                </mark>
+              </div>
+            </div>
+            
+            <!-- Comments Section -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Adviser Comments ${comments.length > 0 ? `(${comments.length})` : ''}:
+              </label>
+              <div class="space-y-3 max-h-48 overflow-y-auto">
+                ${comments.length > 0 ? comments.map(comment => `
+                  <div class="p-3 bg-gray-50 rounded-lg border-l-4 border-orange-400">
+                    <div class="flex justify-between items-start mb-2">
+                      <span class="text-sm font-medium text-gray-800">${comment.adviser_name || 'Adviser'}</span>
+                      <span class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <p class="text-sm text-gray-700">${comment.comment_text}</p>
+                  </div>
+                `).join('') : `
+                  <div class="p-4 text-center text-gray-500 bg-gray-50 rounded-lg">
+                    <svg class="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.001 8.001 0 01-7.003-4.003c-.598-1.505-.92-3.162-.92-4.997C5.077 7.582 8.582 4 13 4s8 3.582 8 8z"></path>
+                    </svg>
+                    <p class="text-sm">No additional comments for this highlight</p>
+                  </div>
+                `}
+              </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex justify-end gap-3 pt-4 border-t">
+              <button onclick="document.getElementById('${modalId}').remove()" 
+                      class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                Close
+              </button>
+            </div>
+          `;
+        })
+        .catch(error => {
+          console.error('[HIGHLIGHT INFO] Error loading comments:', error);
+          // Show error state
+          const modalContent = modal.querySelector('.bg-white');
+          modalContent.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold">💡 Adviser Note</h3>
+              <button class="close-modal-btn text-gray-500 hover:text-gray-700" onclick="document.getElementById('${modalId}').remove()">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="text-center py-8">
+              <svg class="w-12 h-12 mx-auto mb-3 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+              </svg>
+              <p class="text-sm text-red-600 mb-4">Failed to load comment details</p>
+              <button onclick="document.getElementById('${modalId}').remove()" 
+                      class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                Close
+              </button>
+            </div>
+          `;
+        });
+
+      // Close modal when clicking outside
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+
+      // Close modal with ESC key (only if not blocked by fullscreen)
+      const handleEscape = function(e) {
+        if (e.key === 'Escape') {
+          modal.remove();
+          document.removeEventListener('keydown', handleEscape);
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    // Fetch comments associated with a specific highlight
+    function fetchHighlightComments(highlightId) {
+      console.log('[HIGHLIGHT COMMENTS] Fetching comments for highlight:', highlightId);
+      
+      return fetch(`api/student_review.php?action=get_highlight_comments&highlight_id=${highlightId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            console.log('[HIGHLIGHT COMMENTS] Comments loaded:', data.comments.length);
+            return data.comments || [];
+          } else {
+            console.error('[HIGHLIGHT COMMENTS] Failed to load comments:', data.error);
+            return [];
+          }
+        })
+        .catch(error => {
+          console.error('[HIGHLIGHT COMMENTS] Error fetching comments:', error);
+          return [];
+        });
+    }
   </script>
 
   <!-- Modern UI Framework -->

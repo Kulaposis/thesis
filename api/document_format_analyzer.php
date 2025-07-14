@@ -61,8 +61,11 @@ try {
         exit;
     }
     
+    // Get adviser's format requirements
+    $requirements = getAdviserRequirements($db, $user['id']);
+    
     // Analyze the document
-    $analysis = analyzeDocumentFormat($file);
+    $analysis = analyzeDocumentFormat($file, $requirements);
     
     echo json_encode([
         'success' => true,
@@ -72,7 +75,8 @@ try {
             'size' => filesize($file['file_path']),
             'type' => $file['file_type']
         ],
-        'analysis' => $analysis
+        'analysis' => $analysis,
+        'requirements' => $requirements
     ]);
     
 } catch (Exception $e) {
@@ -81,9 +85,42 @@ try {
 }
 
 /**
+ * Get adviser's format requirements
+ */
+function getAdviserRequirements($db, $adviserId) {
+    $sql = "SELECT requirement_type, requirement_key, requirement_value, requirement_unit, is_enabled 
+            FROM format_requirements 
+            WHERE adviser_id = ? AND is_enabled = 1
+            ORDER BY requirement_type, requirement_key";
+    
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$adviserId]);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Organize requirements by type
+    $requirements = [
+        'margins' => [],
+        'typography' => [],
+        'spacing' => [],
+        'page_setup' => [],
+        'structure' => []
+    ];
+    
+    foreach ($results as $row) {
+        $requirements[$row['requirement_type']][$row['requirement_key']] = [
+            'value' => $row['requirement_value'],
+            'unit' => $row['requirement_unit'],
+            'enabled' => true
+        ];
+    }
+    
+    return $requirements;
+}
+
+/**
  * Basic document analysis for all file types
  */
-function analyzeDocumentFormat($file) {
+function analyzeDocumentFormat($file, $requirements = []) {
     $filePath = $file['file_path'];
     $fileName = strtolower($file['original_filename']);
     $fileSize = filesize($filePath);
@@ -104,7 +141,7 @@ function analyzeDocumentFormat($file) {
     // Check file type and perform specific analysis
     if (strpos($fileName, '.docx') !== false) {
         if (class_exists('ZipArchive')) {
-            $analysis = analyzeDocxFormat($filePath, $analysis);
+            $analysis = analyzeDocxFormat($filePath, $analysis, $requirements);
         } else {
             $analysis = addServerLimitationAnalysis($analysis);
         }
@@ -178,7 +215,7 @@ function addBasicFileAnalysis($file, $analysis) {
 /**
  * Simple DOCX analysis
  */
-function analyzeDocxFormat($filePath, $analysis) {
+function analyzeDocxFormat($filePath, $analysis, $requirements = []) {
     $zip = new ZipArchive();
     if ($zip->open($filePath) !== TRUE) {
         $analysis['categories']['file_integrity'] = [
@@ -193,9 +230,9 @@ function analyzeDocxFormat($filePath, $analysis) {
     }
     
     // Basic analysis
-    $analysis = analyzeBasicStructure($zip, $analysis);
-    $analysis = analyzePageSetup($zip, $analysis);
-    $analysis = analyzeDocumentElements($zip, $analysis);
+    $analysis = analyzeBasicStructure($zip, $analysis, $requirements);
+    $analysis = analyzePageSetup($zip, $analysis, $requirements);
+    $analysis = analyzeDocumentElements($zip, $analysis, $requirements);
     
     $zip->close();
     return $analysis;
@@ -204,7 +241,7 @@ function analyzeDocxFormat($filePath, $analysis) {
 /**
  * Analyze basic document structure
  */
-function analyzeBasicStructure($zip, $analysis) {
+function analyzeBasicStructure($zip, $analysis, $requirements = []) {
     $documentXml = $zip->getFromName('word/document.xml');
     if (!$documentXml) {
         $analysis['categories']['structure'] = [
@@ -258,7 +295,7 @@ function analyzeBasicStructure($zip, $analysis) {
 /**
  * Analyze page setup (simplified)
  */
-function analyzePageSetup($zip, $analysis) {
+function analyzePageSetup($zip, $analysis, $requirements = []) {
     $documentXml = $zip->getFromName('word/document.xml');
     if (!$documentXml) {
         return $analysis;
@@ -292,14 +329,32 @@ function analyzePageSetup($zip, $analysis) {
                 'left' => round($margins['left'] / 72, 2)
             ];
             
-            // Check margins (1 inch = 72 points)
-            $minMargin = 65; // Allow small tolerance
-            
+            // Check margins using adviser's requirements
             foreach ($margins as $side => $margin) {
-                if ($margin < $minMargin) {
-                    $issues[] = ucfirst($side) . ' margin too small (' . round($margin/72, 2) . '") - minimum 1" required';
-                    $recommendations[] = 'Set minimum 1-inch margins on all sides';
-                    $score -= 20;
+                $marginInches = $margin / 72;
+                
+                // Check if this side has a requirement
+                if (isset($requirements['margins'][$side])) {
+                    $requiredMargin = floatval($requirements['margins'][$side]['value']);
+                    $tolerance = 0.05; // 0.05 inch tolerance
+                    
+                    if ($marginInches < ($requiredMargin - $tolerance)) {
+                        $issues[] = ucfirst($side) . ' margin too small (' . round($marginInches, 2) . '") - minimum ' . $requiredMargin . '" required';
+                        $recommendations[] = 'Set ' . $side . ' margin to at least ' . $requiredMargin . ' inches';
+                        $score -= 20;
+                    } elseif ($marginInches < $requiredMargin) {
+                        $issues[] = ucfirst($side) . ' margin slightly below requirement (' . round($marginInches, 2) . '") - ' . $requiredMargin . '" preferred';
+                        $recommendations[] = 'Consider adjusting ' . $side . ' margin to exactly ' . $requiredMargin . ' inches';
+                        $score -= 5;
+                    }
+                } else {
+                    // Use default 1-inch minimum if no requirement set
+                    $minMargin = 65; // ~0.9 inches with tolerance
+                    if ($margin < $minMargin) {
+                        $issues[] = ucfirst($side) . ' margin too small (' . round($marginInches, 2) . '") - minimum 1" recommended';
+                        $recommendations[] = 'Set minimum 1-inch margins on all sides';
+                        $score -= 15;
+                    }
                 }
             }
         }
@@ -323,7 +378,7 @@ function analyzePageSetup($zip, $analysis) {
 /**
  * Analyze document elements
  */
-function analyzeDocumentElements($zip, $analysis) {
+function analyzeDocumentElements($zip, $analysis, $requirements = []) {
     $issues = [];
     $recommendations = [];
     $score = 100;
@@ -348,10 +403,41 @@ function analyzeDocumentElements($zip, $analysis) {
     $details['header_footer_files'] = $headerFooterCount;
     $details['has_page_numbers'] = $hasPageNumbers;
     
-    if (!$hasPageNumbers) {
-        $issues[] = 'Page numbers not detected';
-        $recommendations[] = 'Add page numbers (required for thesis documents)';
-        $score -= 25;
+    // Check page numbers based on adviser requirements
+    if (isset($requirements['page_setup']['page_numbers'])) {
+        $pageNumberReq = $requirements['page_setup']['page_numbers']['value'];
+        
+        if ($pageNumberReq === 'required' && !$hasPageNumbers) {
+            $issues[] = 'Page numbers are required but not detected';
+            $recommendations[] = 'Add page numbers as required by your adviser';
+            $score -= 25;
+        } elseif ($pageNumberReq === 'forbidden' && $hasPageNumbers) {
+            $issues[] = 'Page numbers found but are not allowed per requirements';
+            $recommendations[] = 'Remove page numbers as specified by your adviser';
+            $score -= 15;
+        }
+    } else {
+        // Default behavior - recommend page numbers
+        if (!$hasPageNumbers) {
+            $issues[] = 'Page numbers not detected (recommended for thesis documents)';
+            $recommendations[] = 'Consider adding page numbers for better document navigation';
+            $score -= 10;
+        }
+    }
+    
+    // Check header/footer requirements
+    if (isset($requirements['page_setup']['header_footer'])) {
+        $headerFooterReq = $requirements['page_setup']['header_footer']['value'];
+        
+        if ($headerFooterReq === 'required' && $headerFooterCount === 0) {
+            $issues[] = 'Headers/footers are required but not found';
+            $recommendations[] = 'Add headers or footers as required by your adviser';
+            $score -= 20;
+        } elseif ($headerFooterReq === 'forbidden' && $headerFooterCount > 0) {
+            $issues[] = 'Headers/footers found but are not allowed per requirements';
+            $recommendations[] = 'Remove headers and footers as specified by your adviser';
+            $score -= 15;
+        }
     }
     
     // Check for images

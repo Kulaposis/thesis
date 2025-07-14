@@ -1,14 +1,19 @@
 <?php
-require_once '../config/database.php';
-require_once '../includes/auth.php';
-require_once '../includes/admin_functions.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/admin_functions.php';
 
 // Start session and check admin auth
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-if (!isLoggedIn() || !isAdmin()) {
+// Initialize AdminManager for auth check
+$adminManager = new AdminManager();
+
+
+
+if (!isLoggedIn() || !$adminManager->isAdmin()) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Access denied']);
     exit;
@@ -17,7 +22,6 @@ if (!isLoggedIn() || !isAdmin()) {
 header('Content-Type: application/json');
 
 try {
-    $adminManager = new AdminManager();
     
     $method = $_SERVER['REQUEST_METHOD'];
     $input = json_decode(file_get_contents('php://input'), true);

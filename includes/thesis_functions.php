@@ -559,6 +559,39 @@ class ThesisManager {
         }
     }
 
+    // Get highlight by ID
+    public function getHighlightById($highlight_id) {
+        try {
+            $sql = "SELECT h.*, u.full_name as adviser_name 
+                    FROM document_highlights h 
+                    JOIN users u ON h.adviser_id = u.id 
+                    WHERE h.id = :highlight_id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':highlight_id', $highlight_id);
+            $stmt->execute();
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+
+    // Get comments for a specific highlight
+    public function getHighlightComments($highlight_id) {
+        try {
+            $sql = "SELECT c.*, u.full_name as adviser_name 
+                    FROM document_comments c 
+                    JOIN users u ON c.adviser_id = u.id 
+                    WHERE c.highlight_id = :highlight_id 
+                    ORDER BY c.created_at ASC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':highlight_id', $highlight_id);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            return [];
+        }
+    }
+
     // Resolve comment
     public function resolveComment($comment_id, $adviser_id) {
         try {

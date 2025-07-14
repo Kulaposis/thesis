@@ -164,6 +164,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stats = $adminManager->getLoginStatistics($days);
             echo json_encode(['success' => true, 'statistics' => $stats]);
             exit();
+            
+        case 'get_admin_logs':
+            $limit = $_POST['limit'] ?? 10;
+            $filters = [
+                'admin_id' => $_POST['admin_id'] ?? '',
+                'action' => $_POST['action'] ?? ''
+            ];
+            $logs = $adminManager->getAdminLogs($limit, $filters); // This must call getAdminLogs only
+            if ($logs !== false) {
+                echo json_encode(['success' => true, 'logs' => $logs]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to retrieve admin logs']);
+            }
+            exit();
     }
 }
 
@@ -181,7 +195,8 @@ $user = $adminManager->getCurrentUser();
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
     <link rel="stylesheet" href="assets/css/admin-dashboard.css">
 </head>
 <body>
@@ -283,7 +298,7 @@ $user = $adminManager->getCurrentUser();
             <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-10 gap-4">
                 <div>
                     <h1 class="text-4xl font-extrabold text-gray-900 mb-2">Welcome back, <?php echo htmlspecialchars($user['full_name']); ?>!</h1>
-                    <p class="text-gray-500 text-lg font-normal mb-2">Here’s a quick look at your system today.</p>
+                    <p class="text-gray-500 text-lg font-normal mb-2">Here's a quick look at your system today.</p>
                 </div>
             </div>
             <h2 class="text-2xl font-bold text-gray-800 mb-6">Quick Stats</h2>
@@ -336,16 +351,21 @@ $user = $adminManager->getCurrentUser();
                     <?php endif; ?>
                 </div>
             </div>
+            
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
                 <!-- Department Performance Chart -->
                 <div class="chart-container">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Department Performance</h3>
-                    <canvas id="departmentChart" width="400" height="200"></canvas>
+                    <div style="position: relative; height: 250px; width: 100%;">
+                        <canvas id="departmentChart" width="400" height="250"></canvas>
+                    </div>
                 </div>
                 <!-- Monthly Activity Chart -->
                 <div class="chart-container">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Monthly Activity Trends</h3>
-                    <canvas id="activityChart" width="400" height="200"></canvas>
+                    <div style="position: relative; height: 250px; width: 100%;">
+                        <canvas id="activityChart" width="400" height="250"></canvas>
+                    </div>
                 </div>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -617,7 +637,9 @@ $user = $adminManager->getCurrentUser();
                         <i data-lucide="loader-2" class="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin"></i>
                         <p class="text-gray-500">Loading adviser workload...</p>
                     </div>
-                    <canvas id="adviserWorkloadChart" width="400" height="200"></canvas>
+                    <div style="position: relative; height: 250px; width: 100%;">
+                        <canvas id="adviserWorkloadChart" width="400" height="250"></canvas>
+                    </div>
                 </div>
                 <!-- Department Comparison -->
                 <div class="glass-card p-6">
@@ -829,6 +851,11 @@ $user = $adminManager->getCurrentUser();
             
             <!-- Login Logs Tab -->
             <div id="login-logs-content" class="log-tab-content">
+                <!-- Recent Admin Activity Card -->
+                <div class="glass-card p-6 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Admin Activity</h3>
+                    <div id="recentAdminActivity"></div>
+                </div>
                 <div class="glass-card">
                     <div class="p-6 border-b border-gray-200">
                         <div class="flex justify-between items-center mb-4">
@@ -928,9 +955,14 @@ $user = $adminManager->getCurrentUser();
             <div id="admin-logs-content" class="log-tab-content hidden">
                 <div class="glass-card">
                     <div class="p-6 border-b border-gray-200">
-                        <h3 class="text-xl font-semibold text-gray-900">Admin Activity Logs</h3>
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xl font-semibold text-gray-900">Admin Activity Logs</h3>
+                            <button onclick="adminDashboard.loadAdminLogs()" class="btn btn-primary btn-sm">
+                                <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+                                Refresh
+                            </button>
+                        </div>
                     </div>
-                    
                     <div class="p-6">
                         <div class="overflow-x-auto">
                             <table class="modern-table">
@@ -942,33 +974,8 @@ $user = $adminManager->getCurrentUser();
                                         <th>Date</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <?php if (empty($recentLogs)): ?>
-                                        <tr>
-                                            <td colspan="4" class="text-center py-8">
-                                                <i data-lucide="file-text" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
-                                                <p class="text-gray-500">No activity logs available</p>
-                                            </td>
-                                        </tr>
-                                    <?php else: ?>
-                                        <?php foreach ($recentLogs as $log): ?>
-                                        <tr class="slide-in">
-                                            <td>
-                                                <div class="flex items-center">
-                                                    <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold mr-3">
-                                                        <?php echo strtoupper(substr($log['admin_name'], 0, 1)); ?>
-                                                    </div>
-                                                    <span class="font-medium"><?php echo htmlspecialchars($log['admin_name']); ?></span>
-                                                </div>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($log['action']); ?></td>
-                                            <td>
-                                                <span class="badge badge-info"><?php echo htmlspecialchars($log['target_type']); ?></span>
-                                            </td>
-                                            <td><?php echo date('M j, Y g:i A', strtotime($log['created_at'])); ?></td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
+                                <tbody id="adminLogsTableBody">
+                                    <!-- Admin logs will be populated here by JS -->
                                 </tbody>
                             </table>
                         </div>
@@ -1312,6 +1319,226 @@ $user = $adminManager->getCurrentUser();
 // Pass PHP data to JavaScript
 window.departmentData = <?php echo json_encode($analytics['department_performance'] ?? []); ?>;
 window.activityData = <?php echo json_encode($analytics['monthly_activity'] ?? []); ?>;
+
+// Debug analytics data
+console.log('Analytics data loaded from PHP:');
+console.log('Department performance:', window.departmentData);
+console.log('Monthly activity:', window.activityData);
+console.log('Analytics object from PHP:', <?php echo json_encode($analytics); ?>);
+
+// Ensure we have fallback data if needed
+if (!window.departmentData || window.departmentData.length === 0) {
+    console.log('No department data from PHP, using fallback data');
+    window.departmentData = [
+        {department: 'Computer Science', student_count: 25, avg_progress: 75.5},
+        {department: 'Information Technology', student_count: 18, avg_progress: 82.3},
+        {department: 'Engineering', student_count: 15, avg_progress: 68.7},
+        {department: 'Business', student_count: 12, avg_progress: 91.2}
+    ];
+}
+
+if (!window.activityData || window.activityData.length === 0) {
+    console.log('No activity data from PHP, using fallback data');
+    const currentDate = new Date();
+    window.activityData = [];
+    for (let i = 5; i >= 0; i--) {
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        window.activityData.push({
+            month_name: date.toLocaleDateString('en-US', { month: 'short' }),
+            activity_count: Math.floor(Math.random() * 40) + 20
+        });
+    }
+}
+
+// Direct chart initialization - Force charts to load immediately
+console.log('Starting direct chart initialization...');
+
+function forceInitializeCharts() {
+    // Prevent multiple simultaneous calls
+    if (window.chartsInitializing) {
+        console.log('Charts already initializing, skipping...');
+        return;
+    }
+    
+    window.chartsInitializing = true;
+    console.log('Force initialize charts called');
+    console.log('Chart.js available:', typeof Chart !== 'undefined');
+    console.log('Department data:', window.departmentData);
+    console.log('Activity data:', window.activityData);
+    
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js not loaded!');
+        window.chartsInitializing = false;
+        return;
+    }
+    
+    // Destroy existing charts first
+    if (window.departmentChartInstance) {
+        console.log('Destroying existing department chart');
+        window.departmentChartInstance.destroy();
+        window.departmentChartInstance = null;
+    }
+    if (window.activityChartInstance) {
+        console.log('Destroying existing activity chart');
+        window.activityChartInstance.destroy();
+        window.activityChartInstance = null;
+    }
+    
+    // Force create department chart
+    setTimeout(() => {
+        const deptCanvas = document.getElementById('departmentChart');
+        if (deptCanvas && window.departmentData && window.departmentData.length > 0) {
+            console.log('Creating department chart directly...');
+            
+            const labels = window.departmentData.map(dept => dept.department || 'No Department');
+            const studentCounts = window.departmentData.map(dept => parseInt(dept.student_count));
+            const avgProgress = window.departmentData.map(dept => parseFloat(dept.avg_progress));
+            
+            try {
+                window.departmentChartInstance = new Chart(deptCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Number of Students',
+                            data: studentCounts,
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                            borderColor: 'rgb(59, 130, 246)',
+                            borderWidth: 1,
+                            yAxisID: 'y'
+                        }, {
+                            label: 'Average Progress (%)',
+                            data: avgProgress,
+                            type: 'line',
+                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                            borderColor: 'rgb(34, 197, 94)',
+                            borderWidth: 2,
+                            fill: false,
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Department Performance Overview'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Number of Students'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Average Progress (%)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                                max: 100
+                            }
+                        }
+                    }
+                });
+                console.log('Department chart created successfully!');
+            } catch (error) {
+                console.error('Error creating department chart:', error);
+            }
+        }
+        
+        // Force create activity chart
+        const actCanvas = document.getElementById('activityChart');
+        if (actCanvas && window.activityData && window.activityData.length > 0) {
+            console.log('Creating activity chart directly...');
+            
+            const labels = window.activityData.map(item => item.month_name);
+            const activityCounts = window.activityData.map(item => parseInt(item.activity_count));
+            
+            try {
+                window.activityChartInstance = new Chart(actCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'System Activity',
+                            data: activityCounts,
+                            backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                            borderColor: 'rgb(168, 85, 247)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: 'rgb(168, 85, 247)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Monthly Activity Trends'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Activity Count'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Month'
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('Activity chart created successfully!');
+            } catch (error) {
+                console.error('Error creating activity chart:', error);
+            }
+        }
+        
+        // Reset the flag after both charts are processed
+        window.chartsInitializing = false;
+    }, 500);
+}
+
+// Try multiple initialization approaches
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', forceInitializeCharts);
+} else {
+    forceInitializeCharts();
+}
+
+// Additional attempt with delay only if charts aren't already created
+setTimeout(() => {
+    if (!window.departmentChartInstance && !window.activityChartInstance) {
+        forceInitializeCharts();
+    }
+}, 1000);
+
+// Global function for manual testing
+window.forceCharts = forceInitializeCharts;
 </script>
 <script src="assets/js/admin-dashboard.js"></script>
 

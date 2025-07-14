@@ -1794,3 +1794,338 @@
 [09-Jul-2025 07:35:21 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 16
 [09-Jul-2025 07:35:21 Europe/Berlin] Retrieved 1 feedback items
 [09-Jul-2025 07:35:21 Europe/Berlin] Sample feedback item: {"id":"14","chapter_id":"15","adviser_id":"7","feedback_text":"h","feedback_type":"revision","created_at":"2025-07-07 05:51:40","chapter_title":"Introduction","chapter_number":"1","adviser_name":"adrian servillejo"}
+[11-Jul-2025 02:14:34 Europe/Berlin] === Feedback Management API Called ===
+[11-Jul-2025 02:14:34 Europe/Berlin] REQUEST_METHOD: GET
+[11-Jul-2025 02:14:34 Europe/Berlin] CONTENT_TYPE: not set
+[11-Jul-2025 02:14:34 Europe/Berlin] Raw POST data: 
+[11-Jul-2025 02:14:34 Europe/Berlin] POST array: []
+[11-Jul-2025 02:14:34 Europe/Berlin] GET array: {"action":"get_adviser_feedback","student_id":"22"}
+[11-Jul-2025 02:14:34 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[11-Jul-2025 02:14:34 Europe/Berlin] Session save path: D:\xampp\tmp
+[11-Jul-2025 02:14:34 Europe/Berlin] Session name: PHPSESSID
+[11-Jul-2025 02:14:34 Europe/Berlin] Session status: 2
+[11-Jul-2025 02:14:34 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"35","user_full_name":"adrian servillejo","user_email":"advisers@example.com","user_theme":"light","user_language":"en","user_timezone":"Asia\/Manila"}
+[11-Jul-2025 02:14:34 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[11-Jul-2025 02:14:34 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[11-Jul-2025 02:14:34 Europe/Berlin] Action from GET: 'get_adviser_feedback'
+[11-Jul-2025 02:14:34 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[11-Jul-2025 02:14:34 Europe/Berlin] Raw action from POST: not set
+[11-Jul-2025 02:14:34 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[11-Jul-2025 02:14:34 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[11-Jul-2025 02:14:34 Europe/Berlin] Action length: 20
+[11-Jul-2025 02:14:34 Europe/Berlin] Action is empty: no
+[11-Jul-2025 02:14:34 Europe/Berlin] POST data: []
+[11-Jul-2025 02:14:34 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"22"}
+[11-Jul-2025 02:14:34 Europe/Berlin] Request method: GET
+[11-Jul-2025 02:14:34 Europe/Berlin] Content type: not set
+[11-Jul-2025 02:14:34 Europe/Berlin] === get_adviser_feedback for student_id: 22 ===
+[11-Jul-2025 02:14:34 Europe/Berlin] Found 7 theses for adviser 7
+[11-Jul-2025 02:14:34 Europe/Berlin] Checking thesis: student_user_id=22, student_id_field=12345678, title=test
+[11-Jul-2025 02:14:34 Europe/Berlin] Found matching thesis for student_user_id: 22
+[11-Jul-2025 02:14:34 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 22
+[11-Jul-2025 02:14:34 Europe/Berlin] Retrieved 2 feedback items
+[11-Jul-2025 02:14:34 Europe/Berlin] Sample feedback item: {"id":"13","chapter_id":"23","adviser_id":"7","feedback_text":"Test feedback from simple test - 2025-06-30 08:15:04","feedback_type":"comment","created_at":"2025-06-29 22:15:04","chapter_title":"Introduction","chapter_number":"1","adviser_name":"adrian servillejo"}
+[13-Jul-2025 17:20:16 Europe/Berlin] === Feedback Management API Called ===
+[13-Jul-2025 17:20:16 Europe/Berlin] REQUEST_METHOD: GET
+[13-Jul-2025 17:20:16 Europe/Berlin] CONTENT_TYPE: not set
+[13-Jul-2025 17:20:16 Europe/Berlin] Raw POST data: 
+[13-Jul-2025 17:20:16 Europe/Berlin] POST array: []
+[13-Jul-2025 17:20:16 Europe/Berlin] GET array: {"action":"get_adviser_feedback","student_id":"22"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[13-Jul-2025 17:20:16 Europe/Berlin] Session save path: D:\xampp\tmp
+[13-Jul-2025 17:20:16 Europe/Berlin] Session name: PHPSESSID
+[13-Jul-2025 17:20:16 Europe/Berlin] Session status: 2
+[13-Jul-2025 17:20:16 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"46"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[13-Jul-2025 17:20:16 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Action from GET: 'get_adviser_feedback'
+[13-Jul-2025 17:20:16 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Raw action from POST: not set
+[13-Jul-2025 17:20:16 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[13-Jul-2025 17:20:16 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[13-Jul-2025 17:20:16 Europe/Berlin] Action length: 20
+[13-Jul-2025 17:20:16 Europe/Berlin] Action is empty: no
+[13-Jul-2025 17:20:16 Europe/Berlin] POST data: []
+[13-Jul-2025 17:20:16 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"22"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Request method: GET
+[13-Jul-2025 17:20:16 Europe/Berlin] Content type: not set
+[13-Jul-2025 17:20:16 Europe/Berlin] === get_adviser_feedback for student_id: 22 ===
+[13-Jul-2025 17:20:16 Europe/Berlin] Found 7 theses for adviser 7
+[13-Jul-2025 17:20:16 Europe/Berlin] Checking thesis: student_user_id=22, student_id_field=12345678, title=test
+[13-Jul-2025 17:20:16 Europe/Berlin] Found matching thesis for student_user_id: 22
+[13-Jul-2025 17:20:16 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 22
+[13-Jul-2025 17:20:16 Europe/Berlin] Retrieved 2 feedback items
+[13-Jul-2025 17:20:16 Europe/Berlin] Sample feedback item: {"id":"13","chapter_id":"23","adviser_id":"7","feedback_text":"Test feedback from simple test - 2025-06-30 08:15:04","feedback_type":"comment","created_at":"2025-06-29 22:15:04","chapter_title":"Introduction","chapter_number":"1","adviser_name":"adrian servillejo"}
+[13-Jul-2025 17:20:16 Europe/Berlin] === Feedback Management API Called ===
+[13-Jul-2025 17:20:16 Europe/Berlin] REQUEST_METHOD: GET
+[13-Jul-2025 17:20:16 Europe/Berlin] CONTENT_TYPE: not set
+[13-Jul-2025 17:20:16 Europe/Berlin] Raw POST data: 
+[13-Jul-2025 17:20:16 Europe/Berlin] POST array: []
+[13-Jul-2025 17:20:16 Europe/Berlin] GET array: {"action":"get_adviser_feedback","student_id":"16"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[13-Jul-2025 17:20:16 Europe/Berlin] Session save path: D:\xampp\tmp
+[13-Jul-2025 17:20:16 Europe/Berlin] Session name: PHPSESSID
+[13-Jul-2025 17:20:16 Europe/Berlin] Session status: 2
+[13-Jul-2025 17:20:16 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"46"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[13-Jul-2025 17:20:16 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Action from GET: 'get_adviser_feedback'
+[13-Jul-2025 17:20:16 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Raw action from POST: not set
+[13-Jul-2025 17:20:16 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[13-Jul-2025 17:20:16 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[13-Jul-2025 17:20:16 Europe/Berlin] Action length: 20
+[13-Jul-2025 17:20:16 Europe/Berlin] Action is empty: no
+[13-Jul-2025 17:20:16 Europe/Berlin] POST data: []
+[13-Jul-2025 17:20:16 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"16"}
+[13-Jul-2025 17:20:16 Europe/Berlin] Request method: GET
+[13-Jul-2025 17:20:16 Europe/Berlin] Content type: not set
+[13-Jul-2025 17:20:16 Europe/Berlin] === get_adviser_feedback for student_id: 16 ===
+[13-Jul-2025 17:20:16 Europe/Berlin] Found 7 theses for adviser 7
+[13-Jul-2025 17:20:16 Europe/Berlin] Checking thesis: student_user_id=22, student_id_field=12345678, title=test
+[13-Jul-2025 17:20:16 Europe/Berlin] Checking thesis: student_user_id=16, student_id_field=1234, title=the effect of thesis in the mental health of the students
+[13-Jul-2025 17:20:16 Europe/Berlin] Found matching thesis for student_user_id: 16
+[13-Jul-2025 17:20:16 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 16
+[13-Jul-2025 17:20:16 Europe/Berlin] Retrieved 1 feedback items
+[13-Jul-2025 17:20:16 Europe/Berlin] Sample feedback item: {"id":"14","chapter_id":"15","adviser_id":"7","feedback_text":"h","feedback_type":"revision","created_at":"2025-07-07 05:51:40","chapter_title":"Introduction","chapter_number":"1","adviser_name":"adrian servillejo"}
+[13-Jul-2025 17:20:26 Europe/Berlin] === Feedback Management API Called ===
+[13-Jul-2025 17:20:26 Europe/Berlin] REQUEST_METHOD: POST
+[13-Jul-2025 17:20:26 Europe/Berlin] CONTENT_TYPE: application/json
+[13-Jul-2025 17:20:26 Europe/Berlin] Raw POST data: {"action":"add_feedback","chapter_id":"15","feedback_text":"h","feedback_type":"revision"}
+[13-Jul-2025 17:20:26 Europe/Berlin] POST array: []
+[13-Jul-2025 17:20:26 Europe/Berlin] GET array: []
+[13-Jul-2025 17:20:26 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[13-Jul-2025 17:20:26 Europe/Berlin] Session save path: D:\xampp\tmp
+[13-Jul-2025 17:20:26 Europe/Berlin] Session name: PHPSESSID
+[13-Jul-2025 17:20:26 Europe/Berlin] Session status: 2
+[13-Jul-2025 17:20:26 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"46"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[13-Jul-2025 17:20:26 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Raw JSON input: {"action":"add_feedback","chapter_id":"15","feedback_text":"h","feedback_type":"revision"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Parsed JSON data into POST: {"action":"add_feedback","chapter_id":"15","feedback_text":"h","feedback_type":"revision"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Action from POST: 'add_feedback'
+[13-Jul-2025 17:20:26 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Raw action from POST: add_feedback
+[13-Jul-2025 17:20:26 Europe/Berlin] Raw action from GET: not set
+[13-Jul-2025 17:20:26 Europe/Berlin] Final action variable: 'add_feedback'
+[13-Jul-2025 17:20:26 Europe/Berlin] Action length: 12
+[13-Jul-2025 17:20:26 Europe/Berlin] Action is empty: no
+[13-Jul-2025 17:20:26 Europe/Berlin] POST data: {"action":"add_feedback","chapter_id":"15","feedback_text":"h","feedback_type":"revision"}
+[13-Jul-2025 17:20:26 Europe/Berlin] GET data: []
+[13-Jul-2025 17:20:26 Europe/Berlin] Request method: POST
+[13-Jul-2025 17:20:26 Europe/Berlin] Content type: application/json
+[13-Jul-2025 17:20:26 Europe/Berlin] === ADD_FEEDBACK CASE STARTED ===
+[13-Jul-2025 17:20:26 Europe/Berlin] User role: adviser
+[13-Jul-2025 17:20:26 Europe/Berlin] POST data for add_feedback: {"action":"add_feedback","chapter_id":"15","feedback_text":"h","feedback_type":"revision"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Adding feedback for chapter ID: 15
+[13-Jul-2025 17:20:26 Europe/Berlin] Chapter found: {"id":"15","thesis_id":"13","chapter_number":"1","title":"Introduction","content":"\r\n        <h2>Chapter: Introduction<\/h2>\r\n        \r\n        <h3>Introduction<\/h3>\r\n        <p>This chapter introduces the main concepts and methodology that will be discussed throughout this section. The research presented here builds upon previous work in the field and aims to contribute new insights to the existing body of knowledge.<\/p>\r\n        \r\n        <h3>Background<\/h3>\r\n        <p>The background of this study is rooted in the need to address current gaps in understanding. Previous research has shown that there are several areas where further investigation is warranted. This chapter will explore these areas in detail.<\/p>\r\n        \r\n        <h3>Methodology<\/h3>\r\n        <p>The methodology employed in this research follows a systematic approach that ensures validity and reliability of the results. The following steps were taken:<\/p>\r\n        <ul>\r\n            <li>Literature review and analysis<\/li>\r\n            <li>Data collection and processing<\/li>\r\n            <li>Statistical analysis and interpretation<\/li>\r\n            <li>Validation and verification of results<\/li>\r\n        <\/ul>\r\n        \r\n        <h3>Key Findings<\/h3>\r\n        <p>The preliminary findings suggest that there are significant correlations between the variables studied. These findings have important implications for future research and practical applications in the field.<\/p>\r\n        \r\n        <h3>Discussion<\/h3>\r\n        <p>The discussion section will elaborate on the implications of these findings and how they contribute to the broader understanding of the topic. The results are consistent with theoretical expectations and provide valuable insights for practitioners.<\/p>\r\n        \r\n        <h3>Conclusion<\/h3>\r\n        <p>In conclusion, this chapter has presented comprehensive analysis and findings that advance our understanding of the subject matter. The insights gained from this research provide a solid foundation for the subsequent chapters and overall thesis contribution.<\/p>\r\n        ","file_path":"..\/uploads\/6858ea8f69106_1750657679.docx","status":"submitted","submitted_at":"2025-06-22 21:47:59","approved_at":null,"created_at":"2025-06-22 21:47:01","updated_at":"2025-06-22 21:59:46","file_id":null}
+[13-Jul-2025 17:20:26 Europe/Berlin] === START addFeedback ===
+[13-Jul-2025 17:20:26 Europe/Berlin] Adding feedback - Chapter ID: 15 (type: string)
+[13-Jul-2025 17:20:26 Europe/Berlin] Adviser ID: 7 (type: string)
+[13-Jul-2025 17:20:26 Europe/Berlin] Feedback type: revision
+[13-Jul-2025 17:20:26 Europe/Berlin] Feedback text length: 1
+[13-Jul-2025 17:20:26 Europe/Berlin] Chapter found: {"id":"15","thesis_id":"13","title":"Introduction","status":"submitted"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Adviser found: {"id":"7","full_name":"adrian servillejo","role":"adviser"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Executing feedback insert query...
+[13-Jul-2025 17:20:26 Europe/Berlin] Feedback added successfully with ID: 15
+[13-Jul-2025 17:20:26 Europe/Berlin] === END addFeedback SUCCESS ===
+[13-Jul-2025 17:20:26 Europe/Berlin] Feedback added successfully
+[13-Jul-2025 17:20:26 Europe/Berlin] === ADD_FEEDBACK CASE ENDED ===
+[13-Jul-2025 17:20:26 Europe/Berlin] === Feedback Management API Called ===
+[13-Jul-2025 17:20:26 Europe/Berlin] REQUEST_METHOD: GET
+[13-Jul-2025 17:20:26 Europe/Berlin] CONTENT_TYPE: not set
+[13-Jul-2025 17:20:26 Europe/Berlin] Raw POST data: 
+[13-Jul-2025 17:20:26 Europe/Berlin] POST array: []
+[13-Jul-2025 17:20:26 Europe/Berlin] GET array: {"action":"get_adviser_feedback","student_id":"16"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[13-Jul-2025 17:20:26 Europe/Berlin] Session save path: D:\xampp\tmp
+[13-Jul-2025 17:20:26 Europe/Berlin] Session name: PHPSESSID
+[13-Jul-2025 17:20:26 Europe/Berlin] Session status: 2
+[13-Jul-2025 17:20:26 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"46"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[13-Jul-2025 17:20:26 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Action from GET: 'get_adviser_feedback'
+[13-Jul-2025 17:20:26 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Raw action from POST: not set
+[13-Jul-2025 17:20:26 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[13-Jul-2025 17:20:26 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[13-Jul-2025 17:20:26 Europe/Berlin] Action length: 20
+[13-Jul-2025 17:20:26 Europe/Berlin] Action is empty: no
+[13-Jul-2025 17:20:26 Europe/Berlin] POST data: []
+[13-Jul-2025 17:20:26 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"16"}
+[13-Jul-2025 17:20:26 Europe/Berlin] Request method: GET
+[13-Jul-2025 17:20:26 Europe/Berlin] Content type: not set
+[13-Jul-2025 17:20:26 Europe/Berlin] === get_adviser_feedback for student_id: 16 ===
+[13-Jul-2025 17:20:26 Europe/Berlin] Found 7 theses for adviser 7
+[13-Jul-2025 17:20:26 Europe/Berlin] Checking thesis: student_user_id=22, student_id_field=12345678, title=test
+[13-Jul-2025 17:20:26 Europe/Berlin] Checking thesis: student_user_id=16, student_id_field=1234, title=the effect of thesis in the mental health of the students
+[13-Jul-2025 17:20:26 Europe/Berlin] Found matching thesis for student_user_id: 16
+[13-Jul-2025 17:20:26 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 16
+[13-Jul-2025 17:20:26 Europe/Berlin] Retrieved 2 feedback items
+[13-Jul-2025 17:20:26 Europe/Berlin] Sample feedback item: {"id":"15","chapter_id":"15","adviser_id":"7","feedback_text":"h","feedback_type":"revision","created_at":"2025-07-13 07:20:26","chapter_title":"Introduction","chapter_number":"1","adviser_name":"adrian servillejo"}
+[13-Jul-2025 18:00:23 Europe/Berlin] === Feedback Management API Called ===
+[13-Jul-2025 18:00:23 Europe/Berlin] REQUEST_METHOD: GET
+[13-Jul-2025 18:00:23 Europe/Berlin] CONTENT_TYPE: not set
+[13-Jul-2025 18:00:23 Europe/Berlin] Raw POST data: 
+[13-Jul-2025 18:00:23 Europe/Berlin] POST array: []
+[13-Jul-2025 18:00:23 Europe/Berlin] GET array: {"action":"get_adviser_feedback","student_id":"2"}
+[13-Jul-2025 18:00:23 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[13-Jul-2025 18:00:23 Europe/Berlin] Session save path: D:\xampp\tmp
+[13-Jul-2025 18:00:23 Europe/Berlin] Session name: PHPSESSID
+[13-Jul-2025 18:00:23 Europe/Berlin] Session status: 2
+[13-Jul-2025 18:00:23 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"46"}
+[13-Jul-2025 18:00:23 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[13-Jul-2025 18:00:23 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[13-Jul-2025 18:00:23 Europe/Berlin] Action from GET: 'get_adviser_feedback'
+[13-Jul-2025 18:00:23 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[13-Jul-2025 18:00:23 Europe/Berlin] Raw action from POST: not set
+[13-Jul-2025 18:00:23 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[13-Jul-2025 18:00:23 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[13-Jul-2025 18:00:23 Europe/Berlin] Action length: 20
+[13-Jul-2025 18:00:23 Europe/Berlin] Action is empty: no
+[13-Jul-2025 18:00:23 Europe/Berlin] POST data: []
+[13-Jul-2025 18:00:23 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"2"}
+[13-Jul-2025 18:00:23 Europe/Berlin] Request method: GET
+[13-Jul-2025 18:00:23 Europe/Berlin] Content type: not set
+[13-Jul-2025 18:00:23 Europe/Berlin] === get_adviser_feedback for student_id: 2 ===
+[13-Jul-2025 18:00:23 Europe/Berlin] Found 7 theses for adviser 7
+[13-Jul-2025 18:00:23 Europe/Berlin] Checking thesis: student_user_id=22, student_id_field=12345678, title=test
+[13-Jul-2025 18:00:23 Europe/Berlin] Checking thesis: student_user_id=16, student_id_field=1234, title=the effect of thesis in the mental health of the students
+[13-Jul-2025 18:00:23 Europe/Berlin] Checking thesis: student_user_id=15, student_id_field=12345678, title=Untitled Thesis
+[13-Jul-2025 18:00:23 Europe/Berlin] Checking thesis: student_user_id=4, student_id_field=STU003, title=Untitled Thesis
+[13-Jul-2025 18:00:23 Europe/Berlin] Checking thesis: student_user_id=3, student_id_field=STU002, title=Untitled Thesis
+[13-Jul-2025 18:00:23 Europe/Berlin] Checking thesis: student_user_id=6, student_id_field=22-0585-676, title=Untitled Thesis
+[13-Jul-2025 18:00:23 Europe/Berlin] Checking thesis: student_user_id=2, student_id_field=STU001, title=Untitled Thesis
+[13-Jul-2025 18:00:23 Europe/Berlin] Found matching thesis for student_user_id: 2
+[13-Jul-2025 18:00:23 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 2
+[13-Jul-2025 18:00:23 Europe/Berlin] Retrieved 6 feedback items
+[13-Jul-2025 18:00:23 Europe/Berlin] Sample feedback item: {"id":"11","chapter_id":"4","adviser_id":"1","feedback_text":"Direct test feedback - 2025-06-30 08:10:55","feedback_type":"comment","created_at":"2025-06-29 22:10:55","chapter_title":"Implementation","chapter_number":"4","adviser_name":"Dr. John Doe"}
+[13-Jul-2025 19:05:04 Europe/Berlin] === Feedback Management API Called ===
+[13-Jul-2025 19:05:04 Europe/Berlin] REQUEST_METHOD: GET
+[13-Jul-2025 19:05:04 Europe/Berlin] CONTENT_TYPE: not set
+[13-Jul-2025 19:05:04 Europe/Berlin] Raw POST data: 
+[13-Jul-2025 19:05:04 Europe/Berlin] POST array: []
+[13-Jul-2025 19:05:04 Europe/Berlin] GET array: {"action":"get_adviser_feedback","student_id":"16"}
+[13-Jul-2025 19:05:04 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[13-Jul-2025 19:05:04 Europe/Berlin] Session save path: D:\xampp\tmp
+[13-Jul-2025 19:05:04 Europe/Berlin] Session name: PHPSESSID
+[13-Jul-2025 19:05:04 Europe/Berlin] Session status: 2
+[13-Jul-2025 19:05:04 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"46"}
+[13-Jul-2025 19:05:04 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[13-Jul-2025 19:05:04 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[13-Jul-2025 19:05:04 Europe/Berlin] Action from GET: 'get_adviser_feedback'
+[13-Jul-2025 19:05:04 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[13-Jul-2025 19:05:04 Europe/Berlin] Raw action from POST: not set
+[13-Jul-2025 19:05:04 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[13-Jul-2025 19:05:04 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[13-Jul-2025 19:05:04 Europe/Berlin] Action length: 20
+[13-Jul-2025 19:05:04 Europe/Berlin] Action is empty: no
+[13-Jul-2025 19:05:04 Europe/Berlin] POST data: []
+[13-Jul-2025 19:05:04 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"16"}
+[13-Jul-2025 19:05:04 Europe/Berlin] Request method: GET
+[13-Jul-2025 19:05:04 Europe/Berlin] Content type: not set
+[13-Jul-2025 19:05:04 Europe/Berlin] === get_adviser_feedback for student_id: 16 ===
+[13-Jul-2025 19:05:04 Europe/Berlin] Found 7 theses for adviser 7
+[13-Jul-2025 19:05:04 Europe/Berlin] Checking thesis: student_user_id=22, student_id_field=12345678, title=test
+[13-Jul-2025 19:05:04 Europe/Berlin] Checking thesis: student_user_id=16, student_id_field=1234, title=the effect of thesis in the mental health of the students
+[13-Jul-2025 19:05:04 Europe/Berlin] Found matching thesis for student_user_id: 16
+[13-Jul-2025 19:05:04 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 16
+[13-Jul-2025 19:05:05 Europe/Berlin] Retrieved 2 feedback items
+[13-Jul-2025 19:05:05 Europe/Berlin] Sample feedback item: {"id":"15","chapter_id":"15","adviser_id":"7","feedback_text":"h","feedback_type":"revision","created_at":"2025-07-13 07:20:26","chapter_title":"Introduction","chapter_number":"1","adviser_name":"adrian servillejo"}
+[13-Jul-2025 19:05:05 Europe/Berlin] === Feedback Management API Called ===
+[13-Jul-2025 19:05:05 Europe/Berlin] REQUEST_METHOD: GET
+[13-Jul-2025 19:05:05 Europe/Berlin] CONTENT_TYPE: not set
+[13-Jul-2025 19:05:05 Europe/Berlin] Raw POST data: 
+[13-Jul-2025 19:05:05 Europe/Berlin] POST array: []
+[13-Jul-2025 19:05:05 Europe/Berlin] GET array: {"action":"get_adviser_feedback","student_id":"22"}
+[13-Jul-2025 19:05:05 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[13-Jul-2025 19:05:05 Europe/Berlin] Session save path: D:\xampp\tmp
+[13-Jul-2025 19:05:05 Europe/Berlin] Session name: PHPSESSID
+[13-Jul-2025 19:05:05 Europe/Berlin] Session status: 2
+[13-Jul-2025 19:05:05 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"46"}
+[13-Jul-2025 19:05:05 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[13-Jul-2025 19:05:05 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[13-Jul-2025 19:05:05 Europe/Berlin] Action from GET: 'get_adviser_feedback'
+[13-Jul-2025 19:05:05 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[13-Jul-2025 19:05:05 Europe/Berlin] Raw action from POST: not set
+[13-Jul-2025 19:05:05 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[13-Jul-2025 19:05:05 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[13-Jul-2025 19:05:05 Europe/Berlin] Action length: 20
+[13-Jul-2025 19:05:05 Europe/Berlin] Action is empty: no
+[13-Jul-2025 19:05:05 Europe/Berlin] POST data: []
+[13-Jul-2025 19:05:05 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"22"}
+[13-Jul-2025 19:05:05 Europe/Berlin] Request method: GET
+[13-Jul-2025 19:05:05 Europe/Berlin] Content type: not set
+[13-Jul-2025 19:05:05 Europe/Berlin] === get_adviser_feedback for student_id: 22 ===
+[13-Jul-2025 19:05:05 Europe/Berlin] Found 7 theses for adviser 7
+[13-Jul-2025 19:05:05 Europe/Berlin] Checking thesis: student_user_id=22, student_id_field=12345678, title=test
+[13-Jul-2025 19:05:05 Europe/Berlin] Found matching thesis for student_user_id: 22
+[13-Jul-2025 19:05:05 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 22
+[13-Jul-2025 19:05:05 Europe/Berlin] Retrieved 2 feedback items
+[13-Jul-2025 19:05:05 Europe/Berlin] Sample feedback item: {"id":"13","chapter_id":"23","adviser_id":"7","feedback_text":"Test feedback from simple test - 2025-06-30 08:15:04","feedback_type":"comment","created_at":"2025-06-29 22:15:04","chapter_title":"Introduction","chapter_number":"1","adviser_name":"adrian servillejo"}
+[13-Jul-2025 19:05:06 Europe/Berlin] === Feedback Management API Called ===
+[13-Jul-2025 19:05:06 Europe/Berlin] REQUEST_METHOD: GET
+[13-Jul-2025 19:05:06 Europe/Berlin] CONTENT_TYPE: not set
+[13-Jul-2025 19:05:06 Europe/Berlin] Raw POST data: 
+[13-Jul-2025 19:05:06 Europe/Berlin] POST array: []
+[13-Jul-2025 19:05:06 Europe/Berlin] GET array: {"action":"get_adviser_feedback","student_id":"15"}
+[13-Jul-2025 19:05:06 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[13-Jul-2025 19:05:06 Europe/Berlin] Session save path: D:\xampp\tmp
+[13-Jul-2025 19:05:06 Europe/Berlin] Session name: PHPSESSID
+[13-Jul-2025 19:05:06 Europe/Berlin] Session status: 2
+[13-Jul-2025 19:05:06 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"46"}
+[13-Jul-2025 19:05:06 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[13-Jul-2025 19:05:06 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[13-Jul-2025 19:05:06 Europe/Berlin] Action from GET: 'get_adviser_feedback'
+[13-Jul-2025 19:05:06 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[13-Jul-2025 19:05:06 Europe/Berlin] Raw action from POST: not set
+[13-Jul-2025 19:05:06 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[13-Jul-2025 19:05:06 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[13-Jul-2025 19:05:06 Europe/Berlin] Action length: 20
+[13-Jul-2025 19:05:06 Europe/Berlin] Action is empty: no
+[13-Jul-2025 19:05:06 Europe/Berlin] POST data: []
+[13-Jul-2025 19:05:06 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"15"}
+[13-Jul-2025 19:05:06 Europe/Berlin] Request method: GET
+[13-Jul-2025 19:05:06 Europe/Berlin] Content type: not set
+[13-Jul-2025 19:05:06 Europe/Berlin] === get_adviser_feedback for student_id: 15 ===
+[13-Jul-2025 19:05:06 Europe/Berlin] Found 7 theses for adviser 7
+[13-Jul-2025 19:05:06 Europe/Berlin] Checking thesis: student_user_id=22, student_id_field=12345678, title=test
+[13-Jul-2025 19:05:06 Europe/Berlin] Checking thesis: student_user_id=16, student_id_field=1234, title=the effect of thesis in the mental health of the students
+[13-Jul-2025 19:05:06 Europe/Berlin] Checking thesis: student_user_id=15, student_id_field=12345678, title=Untitled Thesis
+[13-Jul-2025 19:05:06 Europe/Berlin] Found matching thesis for student_user_id: 15
+[13-Jul-2025 19:05:06 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 15
+[13-Jul-2025 19:05:06 Europe/Berlin] Retrieved 0 feedback items
+[13-Jul-2025 19:05:07 Europe/Berlin] === Feedback Management API Called ===
+[13-Jul-2025 19:05:07 Europe/Berlin] REQUEST_METHOD: GET
+[13-Jul-2025 19:05:07 Europe/Berlin] CONTENT_TYPE: not set
+[13-Jul-2025 19:05:07 Europe/Berlin] Raw POST data: 
+[13-Jul-2025 19:05:07 Europe/Berlin] POST array: []
+[13-Jul-2025 19:05:07 Europe/Berlin] GET array: {"action":"get_adviser_feedback","student_id":"4"}
+[13-Jul-2025 19:05:07 Europe/Berlin] Session ID: 4t2sfi56tof22b07inbi3ksthc
+[13-Jul-2025 19:05:07 Europe/Berlin] Session save path: D:\xampp\tmp
+[13-Jul-2025 19:05:07 Europe/Berlin] Session name: PHPSESSID
+[13-Jul-2025 19:05:07 Europe/Berlin] Session status: 2
+[13-Jul-2025 19:05:07 Europe/Berlin] Session data: {"user_id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science","logged_in":true,"login_log_id":"46"}
+[13-Jul-2025 19:05:07 Europe/Berlin] Session cookie params: {"lifetime":0,"path":"\/","domain":"","secure":false,"httponly":false,"samesite":""}
+[13-Jul-2025 19:05:07 Europe/Berlin] Cookies received: {"PHPSESSID":"4t2sfi56tof22b07inbi3ksthc"}
+[13-Jul-2025 19:05:08 Europe/Berlin] Action from GET: 'get_adviser_feedback'
+[13-Jul-2025 19:05:08 Europe/Berlin] User: {"id":"7","email":"advisers@example.com","full_name":"adrian servillejo","role":"adviser","student_id":"","faculty_id":"123","program":"","department":"Computer Science"}
+[13-Jul-2025 19:05:08 Europe/Berlin] Raw action from POST: not set
+[13-Jul-2025 19:05:08 Europe/Berlin] Raw action from GET: get_adviser_feedback
+[13-Jul-2025 19:05:08 Europe/Berlin] Final action variable: 'get_adviser_feedback'
+[13-Jul-2025 19:05:08 Europe/Berlin] Action length: 20
+[13-Jul-2025 19:05:08 Europe/Berlin] Action is empty: no
+[13-Jul-2025 19:05:08 Europe/Berlin] POST data: []
+[13-Jul-2025 19:05:08 Europe/Berlin] GET data: {"action":"get_adviser_feedback","student_id":"4"}
+[13-Jul-2025 19:05:08 Europe/Berlin] Request method: GET
+[13-Jul-2025 19:05:08 Europe/Berlin] Content type: not set
+[13-Jul-2025 19:05:08 Europe/Berlin] === get_adviser_feedback for student_id: 4 ===
+[13-Jul-2025 19:05:08 Europe/Berlin] Found 7 theses for adviser 7
+[13-Jul-2025 19:05:08 Europe/Berlin] Checking thesis: student_user_id=22, student_id_field=12345678, title=test
+[13-Jul-2025 19:05:08 Europe/Berlin] Checking thesis: student_user_id=16, student_id_field=1234, title=the effect of thesis in the mental health of the students
+[13-Jul-2025 19:05:08 Europe/Berlin] Checking thesis: student_user_id=15, student_id_field=12345678, title=Untitled Thesis
+[13-Jul-2025 19:05:08 Europe/Berlin] Checking thesis: student_user_id=4, student_id_field=STU003, title=Untitled Thesis
+[13-Jul-2025 19:05:08 Europe/Berlin] Found matching thesis for student_user_id: 4
+[13-Jul-2025 19:05:08 Europe/Berlin] Calling getStudentAllFeedback with student_user_id: 4
+[13-Jul-2025 19:05:08 Europe/Berlin] Retrieved 1 feedback items
+[13-Jul-2025 19:05:08 Europe/Berlin] Sample feedback item: {"id":"6","chapter_id":"10","adviser_id":"5","feedback_text":"Well-structured introduction. The research gap is clearly identified. Consider strengthening the significance section with more industry statistics.","feedback_type":"approval","created_at":"2025-06-18 22:29:09","chapter_title":"Technical Requirements","chapter_number":"2","adviser_name":"Dr. Jane Smith"}

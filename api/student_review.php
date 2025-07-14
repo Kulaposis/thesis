@@ -191,6 +191,57 @@ switch ($action) {
         echo json_encode(['success' => true, 'comments' => $comments]);
         break;
 
+    case 'get_highlight_comments':
+        if (!isset($_GET['highlight_id'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Highlight ID required']);
+            exit;
+        }
+        
+        $highlight_id = $_GET['highlight_id'];
+        
+        // First get the highlight to check access permissions
+        $highlight = $thesisManager->getHighlightById($highlight_id);
+        if (!$highlight) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Highlight not found']);
+            exit;
+        }
+        
+        // Get the chapter to verify access
+        $chapter = $thesisManager->getChapterById($highlight['chapter_id']);
+        if (!$chapter) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Chapter not found']);
+            exit;
+        }
+        
+        $hasAccess = false;
+        
+        if ($user['role'] === 'student') {
+            // For students, check if the chapter belongs to their thesis
+            $student_thesis = $thesisManager->getStudentThesis($user['id']);
+            if ($student_thesis && $chapter['thesis_id'] == $student_thesis['id']) {
+                $hasAccess = true;
+            }
+        } else if ($user['role'] === 'adviser') {
+            // For advisers, check if the chapter belongs to a thesis they advise
+            $thesis = $thesisManager->getThesisById($chapter['thesis_id']);
+            if ($thesis && $thesis['adviser_id'] == $user['id']) {
+                $hasAccess = true;
+            }
+        }
+        
+        if (!$hasAccess) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Access denied']);
+            exit;
+        }
+        
+        $comments = $thesisManager->getHighlightComments($highlight_id);
+        echo json_encode(['success' => true, 'comments' => $comments]);
+        break;
+
     default:
         http_response_code(400);
         echo json_encode(['error' => 'Invalid action']);

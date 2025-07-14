@@ -368,14 +368,6 @@ class AdminManager {
 
     public function getAllUsers($filters = []) {
         try {
-            // Check if students and advisers tables exist
-            $tableExists = [];
-            $stmt = $this->conn->query("SHOW TABLES LIKE 'students'");
-            $tableExists['students'] = $stmt->rowCount() > 0;
-            
-            $stmt = $this->conn->query("SHOW TABLES LIKE 'advisers'");
-            $tableExists['advisers'] = $stmt->rowCount() > 0;
-            
             // Check if is_active column exists
             $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE 'is_active'");
             $hasIsActive = $stmt->rowCount() > 0;
@@ -424,7 +416,7 @@ class AdminManager {
             }
             
             if (!empty($filters['search'])) {
-                $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR s.student_id LIKE ? OR a.faculty_id LIKE ?)";
+                $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR u.student_id LIKE ? OR u.faculty_id LIKE ?)";
                 $searchPattern = "%{$filters['search']}%";
                 $params[] = $searchPattern;
                 $params[] = $searchPattern;
@@ -433,13 +425,12 @@ class AdminManager {
             }
             
             if (!empty($filters['department'])) {
-                $sql .= " AND (s.department = ? OR a.department = ?)";
-                $params[] = $filters['department'];
+                $sql .= " AND u.department = ?";
                 $params[] = $filters['department'];
             }
             
             if (!empty($filters['program'])) {
-                $sql .= " AND s.program = ?";
+                $sql .= " AND u.program = ?";
                 $params[] = $filters['program'];
             }
             
@@ -459,6 +450,9 @@ class AdminManager {
             
             // Format user data
             foreach ($users as &$user) {
+                // Ensure user ID is an integer
+                $user['id'] = (int)$user['id'];
+                
                 $user['is_active'] = (bool)$user['is_active'];
                 
                 // Format display name
@@ -519,44 +513,26 @@ class AdminManager {
             $password = !empty($userData['password']) ? $userData['password'] : $this->generateSecurePassword();
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             
-            // Create user
+            // Create user with all fields
             $stmt = $this->conn->prepare("
-                INSERT INTO users (full_name, email, password, role, created_at, is_active)
-                VALUES (?, ?, ?, ?, NOW(), 1)
+                INSERT INTO users (full_name, email, password, role, student_id, faculty_id, program, department, created_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1)
             ");
             $stmt->execute([
                 $userData['full_name'],
                 $userData['email'],
                 $hashedPassword,
-                $userData['role']
+                $userData['role'],
+                $userData['student_id'] ?? null,
+                $userData['faculty_id'] ?? null,
+                $userData['program'] ?? null,
+                $userData['adviser_department'] ?? $userData['department'] ?? null
             ]);
             
             $userId = $this->conn->lastInsertId();
             
-            // Create role-specific records
-            if ($userData['role'] === 'student') {
-                $stmt = $this->conn->prepare("
-                    INSERT INTO students (user_id, student_id, program, department, thesis_progress, created_at)
-                    VALUES (?, ?, ?, ?, 0, NOW())
-                ");
-                $stmt->execute([
-                    $userId,
-                    $userData['student_id'] ?? null,
-                    $userData['program'] ?? null,
-                    $userData['department'] ?? null
-                ]);
-            } elseif ($userData['role'] === 'adviser') {
-                $stmt = $this->conn->prepare("
-                    INSERT INTO advisers (user_id, faculty_id, department, specialization, created_at)
-                    VALUES (?, ?, ?, ?, NOW())
-                ");
-                $stmt->execute([
-                    $userId,
-                    $userData['faculty_id'] ?? null,
-                    $userData['adviser_department'] ?? $userData['department'] ?? null,
-                    $userData['specialization'] ?? null
-                ]);
-            }
+            // Note: All user data is stored in the users table
+            // No need for separate advisers/students tables
             
             $this->conn->commit();
             
@@ -625,60 +601,22 @@ class AdminManager {
             // Update user
             $stmt = $this->conn->prepare("
                 UPDATE users 
-                SET full_name = ?, email = ?, role = ?
+                SET full_name = ?, email = ?, role = ?, student_id = ?, faculty_id = ?, program = ?, department = ?
                 WHERE id = ?
             ");
             $stmt->execute([
                 $userData['full_name'],
                 $userData['email'],
                 $userData['role'],
+                $userData['student_id'] ?? null,
+                $userData['faculty_id'] ?? null,
+                $userData['program'] ?? null,
+                $userData['department'] ?? ($userData['adviser_department'] ?? $userData['department'] ?? null),
                 $userId
             ]);
             
-            // Update role-specific records
-            if ($userData['role'] === 'student') {
-                // Delete from advisers if exists
-                $this->conn->prepare("DELETE FROM advisers WHERE user_id = ?")->execute([$userId]);
-                
-                // Update or insert student record
-                $stmt = $this->conn->prepare("
-                    INSERT INTO students (user_id, student_id, program, department, thesis_progress, created_at)
-                    VALUES (?, ?, ?, ?, 0, NOW())
-                    ON DUPLICATE KEY UPDATE
-                    student_id = VALUES(student_id),
-                    program = VALUES(program),
-                    department = VALUES(department)
-                ");
-                $stmt->execute([
-                    $userId,
-                    $userData['student_id'] ?? null,
-                    $userData['program'] ?? null,
-                    $userData['department'] ?? null
-                ]);
-            } elseif ($userData['role'] === 'adviser') {
-                // Delete from students if exists
-                $this->conn->prepare("DELETE FROM students WHERE user_id = ?")->execute([$userId]);
-                
-                // Update or insert adviser record
-                $stmt = $this->conn->prepare("
-                    INSERT INTO advisers (user_id, faculty_id, department, specialization, created_at)
-                    VALUES (?, ?, ?, ?, NOW())
-                    ON DUPLICATE KEY UPDATE
-                    faculty_id = VALUES(faculty_id),
-                    department = VALUES(department),
-                    specialization = VALUES(specialization)
-                ");
-                $stmt->execute([
-                    $userId,
-                    $userData['faculty_id'] ?? null,
-                    $userData['adviser_department'] ?? $userData['department'] ?? null,
-                    $userData['specialization'] ?? null
-                ]);
-            } else {
-                // Remove from role-specific tables if changing to admin
-                $this->conn->prepare("DELETE FROM students WHERE user_id = ?")->execute([$userId]);
-                $this->conn->prepare("DELETE FROM advisers WHERE user_id = ?")->execute([$userId]);
-            }
+            // Note: All user data is stored in the users table
+            // No need for separate advisers/students tables
             
             $this->conn->commit();
             
@@ -711,11 +649,7 @@ class AdminManager {
             
             $this->conn->beginTransaction();
             
-            // Delete from role-specific tables first (foreign key constraints)
-            $this->conn->prepare("DELETE FROM students WHERE user_id = ?")->execute([$userId]);
-            $this->conn->prepare("DELETE FROM advisers WHERE user_id = ?")->execute([$userId]);
-            
-            // Delete user
+            // Delete user (all data is in users table)
             $stmt = $this->conn->prepare("DELETE FROM users WHERE id = ?");
             $stmt->execute([$userId]);
             
@@ -766,6 +700,7 @@ class AdminManager {
                         'message' => "$count user(s) deleted successfully",
                         'count' => $count
                     ];
+                    break;
                     
                 case 'reset_password':
                     $passwords = [];
@@ -797,6 +732,7 @@ class AdminManager {
                         'count' => $count,
                         'passwords' => $passwords
                     ];
+                    break;
                     
                 case 'update_role':
                     if (empty($data['new_role'])) {
@@ -816,6 +752,7 @@ class AdminManager {
                         'message' => "$count user(s) role updated successfully",
                         'count' => $count
                     ];
+                    break;
                     
                 default:
                     return ['success' => false, 'message' => 'Invalid operation'];
@@ -893,27 +830,38 @@ class AdminManager {
             
             // Department performance
             $query = "SELECT 
-                        u.department,
+                        COALESCE(u.department, 'Not Specified') as department,
                         COUNT(DISTINCT CASE WHEN u.role = 'student' THEN u.id END) as student_count,
                         COUNT(DISTINCT t.id) as thesis_count,
-                        AVG(t.progress_percentage) as avg_progress,
+                        COALESCE(AVG(t.progress_percentage), 0) as avg_progress,
                         COUNT(CASE WHEN t.status = 'approved' THEN 1 END) as completed_theses
                       FROM users u
                       LEFT JOIN theses t ON u.id = t.student_id
-                      WHERE u.department IS NOT NULL
-                      GROUP BY u.department";
+                      WHERE u.department IS NOT NULL OR u.role IN ('student', 'adviser')
+                      GROUP BY COALESCE(u.department, 'Not Specified')
+                      HAVING student_count > 0
+                      ORDER BY student_count DESC";
             
             $stmt = $this->conn->prepare($query);
             $stmt->execute();
             $analytics['department_performance'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            // Monthly activity trends
+            // Monthly activity trends - using multiple sources for better data
             $query = "SELECT 
-                        DATE_FORMAT(created_at, '%Y-%m') as month,
-                        COUNT(*) as activity_count
-                      FROM notifications 
-                      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-                      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                        DATE_FORMAT(activity_date, '%Y-%m') as month,
+                        MONTHNAME(activity_date) as month_name,
+                        YEAR(activity_date) as year,
+                        SUM(activity_count) as activity_count
+                      FROM (
+                        SELECT DATE(created_at) as activity_date, COUNT(*) as activity_count FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) GROUP BY DATE(created_at)
+                        UNION ALL
+                        SELECT DATE(created_at) as activity_date, COUNT(*) as activity_count FROM theses WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) GROUP BY DATE(created_at)
+                        UNION ALL
+                        SELECT DATE(submitted_at) as activity_date, COUNT(*) as activity_count FROM chapters WHERE submitted_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) AND submitted_at IS NOT NULL GROUP BY DATE(submitted_at)
+                        UNION ALL
+                        SELECT DATE(created_at) as activity_date, COUNT(*) as activity_count FROM feedback WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) GROUP BY DATE(created_at)
+                      ) as activities
+                      GROUP BY DATE_FORMAT(activity_date, '%Y-%m'), MONTHNAME(activity_date), YEAR(activity_date)
                       ORDER BY month";
             
             $stmt = $this->conn->prepare($query);
@@ -924,12 +872,14 @@ class AdminManager {
             $query = "SELECT 
                         u.full_name as adviser_name,
                         COUNT(t.id) as supervised_theses,
-                        AVG(t.progress_percentage) as avg_student_progress,
+                        COALESCE(AVG(t.progress_percentage), 0) as avg_student_progress,
                         COUNT(CASE WHEN t.status = 'approved' THEN 1 END) as completed_supervisions
                       FROM users u
                       LEFT JOIN theses t ON u.id = t.adviser_id
                       WHERE u.role = 'adviser'
-                      GROUP BY u.id, u.full_name";
+                      GROUP BY u.id, u.full_name
+                      HAVING supervised_theses > 0
+                      ORDER BY supervised_theses DESC";
             
             $stmt = $this->conn->prepare($query);
             $stmt->execute();
@@ -939,20 +889,34 @@ class AdminManager {
             
         } catch (Exception $e) {
             error_log("Error getting advanced analytics: " . $e->getMessage());
-            return false;
+            return [
+                'department_performance' => [],
+                'monthly_activity' => [],
+                'adviser_workload' => []
+            ];
         }
     }
 
     public function getAdviserWorkload() {
-        $db = $this->getDb(); // Adjust if your DB connection method is different
-        $sql = "SELECT u.full_name AS adviser, COUNT(s.id) AS workload
-                FROM users u
-                LEFT JOIN students s ON s.adviser_id = u.id
-                WHERE u.role = 'adviser'
-                GROUP BY u.id";
-        $stmt = $db->prepare($sql);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $query = "SELECT 
+                        u.full_name AS adviser_name,
+                        COUNT(DISTINCT t.id) AS supervised_theses,
+                        COUNT(DISTINCT t.student_id) AS student_count,
+                        COALESCE(AVG(t.progress_percentage), 0) AS avg_progress
+                      FROM users u
+                      LEFT JOIN theses t ON u.id = t.adviser_id
+                      WHERE u.role = 'adviser'
+                      GROUP BY u.id, u.full_name
+                      ORDER BY supervised_theses DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error getting adviser workload: " . $e->getMessage());
+            return [];
+        }
     }
 
     // ========================================
@@ -1083,15 +1047,32 @@ class AdminManager {
                      VALUES (:admin_id, :action, :target_type, :target_id, :details, :ip_address, :user_agent)";
             
             $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(':admin_id', $_SESSION['user_id']);
-            $stmt->bindParam(':action', $action);
-            $stmt->bindParam(':target_type', $target_type);
-            $stmt->bindParam(':target_id', $target_id);
-            $stmt->bindParam(':details', json_encode($details));
-            $stmt->bindParam(':ip_address', $_SERVER['REMOTE_ADDR'] ?? 'unknown');
-            $stmt->bindParam(':user_agent', $_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
+            $adminId = $_SESSION['user_id'];
+            $detailsJson = json_encode($details);
+            $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
             
-            return $stmt->execute();
+            // Use bindValue instead of bindParam to avoid reference issues
+            $stmt->bindValue(':admin_id', $adminId, PDO::PARAM_INT);
+            $stmt->bindValue(':action', $action, PDO::PARAM_STR);
+            $stmt->bindValue(':target_type', $target_type, PDO::PARAM_STR);
+            $stmt->bindValue(':target_id', $target_id, PDO::PARAM_INT);
+            $stmt->bindValue(':details', $detailsJson, PDO::PARAM_STR);
+            $stmt->bindValue(':ip_address', $ipAddress, PDO::PARAM_STR);
+            $stmt->bindValue(':user_agent', $userAgent, PDO::PARAM_STR);
+            
+            $result = $stmt->execute();
+            
+            if (!$result) {
+                error_log("Failed to log admin action: " . json_encode([
+                    'action' => $action,
+                    'target_type' => $target_type,
+                    'target_id' => $target_id,
+                    'admin_id' => $adminId
+                ]));
+            }
+            
+            return $result;
             
         } catch (Exception $e) {
             error_log("Error logging admin action: " . $e->getMessage());
