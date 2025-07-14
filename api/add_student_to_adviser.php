@@ -20,6 +20,17 @@ $response = [
 ];
 
 // Validate request
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_programs') {
+    require_once '../config/database.php';
+    $db = new Database();
+    $pdo = $db->getConnection();
+    $stmt = $pdo->prepare('SELECT program_code, program_name, department FROM programs WHERE is_active = 1 ORDER BY department, program_name');
+    $stmt->execute();
+    $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode(['success' => true, 'programs' => $programs]);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     $response['message'] = 'Invalid request method';
     echo json_encode($response);

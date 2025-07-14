@@ -1194,6 +1194,33 @@
   border: 1px solid rgba(0,0,0,0.1) !important;
 }
 
+/* Additional fullscreen highlight visibility fixes */
+.document-fullscreen-modal [data-highlight-id] {
+  background-color: #ffeb3b !important;
+  color: inherit !important;
+  display: inline !important;
+  position: relative !important;
+  z-index: 1000 !important;
+  padding: 2px 4px !important;
+  border-radius: 3px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+}
+
+/* Force visibility for any highlight element in fullscreen */
+.document-fullscreen-modal mark,
+.document-fullscreen-modal .highlight-marker,
+.document-fullscreen-modal .fullscreen-highlight {
+  background-color: #ffeb3b !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: inline !important;
+  z-index: 1000 !important;
+}
+
 .document-fullscreen-modal .highlight-marker:hover {
   background: linear-gradient(120deg, #fed7aa 0%, #f97316 20%, #fed7aa 100%) !important;
   transform: scale(1.02) !important;
@@ -1467,4 +1494,61 @@
     background: rgba(251, 191, 36, 0.35) !important;
     border-bottom-color: #d97706 !important;
     box-shadow: 0 8px 32px rgba(251, 191, 36, 0.22) !important;
+} 
+
+/* --- QUICK ANALYSIS PANEL WHITESPACE FIX --- */
+#tabbed-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+}
+
+#tabbed-panel .flex-1 {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#analysis-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  background: #fff;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+#analysis-content > .flex-1 {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+#analysis-content .scroll-container,
+#analysis-content .custom-scrollbar {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+#analysis-content .p-4:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Remove extra whitespace for the analysis panel */
+#analysis-content > div:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
 } 

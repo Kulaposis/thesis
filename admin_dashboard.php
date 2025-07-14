@@ -139,18 +139,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'date_to' => $_POST['date_to'] ?? '',
                 'user_search' => $_POST['user_search'] ?? ''
             ];
-            $limit = $_POST['limit'] ?? 100;
+            $limit = $_POST['limit'] ?? 20;
+            $page = $_POST['page'] ?? 1;
             
             error_log("Filters: " . json_encode($filters));
-            error_log("Limit: " . $limit);
+            error_log("Limit: " . $limit . ", Page: " . $page);
             
-            $logs = $adminManager->getLoginLogs($limit, $filters);
+            $result = $adminManager->getLoginLogsWithPagination($limit, $page, $filters);
             
-            error_log("Login logs result: " . ($logs !== false ? count($logs) . " logs" : "false"));
-            
-            if ($logs !== false) {
-                $response = ['success' => true, 'logs' => $logs];
-                error_log("Sending response with " . count($logs) . " logs");
+            if ($result !== false) {
+                $response = [
+                    'success' => true, 
+                    'logs' => $result['logs'],
+                    'pagination' => [
+                        'current_page' => $result['current_page'],
+                        'total_pages' => $result['total_pages'],
+                        'total_count' => $result['total_count'],
+                        'per_page' => $result['per_page']
+                    ]
+                ];
+                error_log("Sending response with " . count($result['logs']) . " logs, page " . $result['current_page'] . " of " . $result['total_pages']);
             } else {
                 $response = ['success' => false, 'error' => 'Failed to retrieve logs'];
                 error_log("Login logs query failed");
@@ -166,17 +174,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit();
             
         case 'get_admin_logs':
-            $limit = $_POST['limit'] ?? 10;
+            $limit = $_POST['limit'] ?? 20;
+            $page = $_POST['page'] ?? 1;
             $filters = [
                 'admin_id' => $_POST['admin_id'] ?? '',
                 'action' => $_POST['action'] ?? ''
             ];
-            $logs = $adminManager->getAdminLogs($limit, $filters); // This must call getAdminLogs only
-            if ($logs !== false) {
-                echo json_encode(['success' => true, 'logs' => $logs]);
+            $result = $adminManager->getAdminLogsWithPagination($limit, $page, $filters);
+            if ($result !== false) {
+                echo json_encode([
+                    'success' => true, 
+                    'logs' => $result['logs'],
+                    'pagination' => [
+                        'current_page' => $result['current_page'],
+                        'total_pages' => $result['total_pages'],
+                        'total_count' => $result['total_count'],
+                        'per_page' => $result['per_page']
+                    ]
+                ]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Failed to retrieve admin logs']);
             }
+            exit();
+
+        // Program Management AJAX handlers
+        case 'get_programs':
+            $filters = [
+                'department' => $_POST['department'] ?? '',
+                'search' => $_POST['search'] ?? '',
+                'is_active' => $_POST['is_active'] ?? ''
+            ];
+            $programs = $adminManager->getAllPrograms($filters);
+            echo json_encode(['success' => true, 'programs' => $programs]);
+            exit();
+
+        case 'get_program':
+            $programId = $_POST['program_id'];
+            $program = $adminManager->getProgramById($programId);
+            if ($program) {
+                echo json_encode(['success' => true, 'program' => $program]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Program not found']);
+            }
+            exit();
+
+        case 'create_program':
+            $programData = [
+                'program_code' => $_POST['program_code'],
+                'program_name' => $_POST['program_name'],
+                'department' => $_POST['department'],
+                'description' => $_POST['description'] ?? '',
+                'duration_years' => $_POST['duration_years'] ?? 4,
+                'total_units' => $_POST['total_units'] ?? 120,
+                'is_active' => $_POST['is_active'] ?? 1
+            ];
+            $result = $adminManager->createProgram($programData);
+            echo json_encode($result);
+            exit();
+
+        case 'update_program':
+            $programId = $_POST['program_id'];
+            $programData = [
+                'program_code' => $_POST['program_code'],
+                'program_name' => $_POST['program_name'],
+                'department' => $_POST['department'],
+                'description' => $_POST['description'] ?? '',
+                'duration_years' => $_POST['duration_years'] ?? 4,
+                'total_units' => $_POST['total_units'] ?? 120,
+                'is_active' => $_POST['is_active'] ?? 1
+            ];
+            $result = $adminManager->updateProgram($programId, $programData);
+            echo json_encode($result);
+            exit();
+
+        case 'delete_program':
+            $programId = $_POST['program_id'];
+            $result = $adminManager->deleteProgram($programId);
+            echo json_encode($result);
+            exit();
+
+        case 'get_departments':
+            $departments = $adminManager->getDepartments();
+            echo json_encode(['success' => true, 'departments' => $departments]);
+            exit();
+
+        case 'get_program_statistics':
+            $stats = $adminManager->getProgramStatistics();
+            echo json_encode(['success' => true, 'statistics' => $stats]);
             exit();
     }
 }
@@ -219,6 +303,10 @@ $user = $adminManager->getCurrentUser();
         <a href="#" class="nav-item" data-tab="users">
             <i data-lucide="users"></i>
             User Management
+        </a>
+        <a href="#" class="nav-item" data-tab="programs">
+            <i data-lucide="graduation-cap"></i>
+            Programs
         </a>
         <a href="#" class="nav-item" data-tab="analytics">
             <i data-lucide="bar-chart-3"></i>
@@ -622,6 +710,126 @@ $user = $adminManager->getCurrentUser();
         </div>
     </div>
 
+    <!-- Programs Tab -->
+    <div id="programs-tab" class="tab-content hidden">
+        <div class="pt-24 pb-8">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Program Management</h1>
+                <p class="text-gray-600">Manage academic programs, departments, and program details.</p>
+            </div>
+            
+            <!-- Program Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Programs</p>
+                            <p class="text-2xl font-bold text-gray-900" id="totalPrograms">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="graduation-cap" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Active Programs</p>
+                            <p class="text-2xl font-bold text-gray-900" id="activePrograms">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="check-circle" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Departments</p>
+                            <p class="text-2xl font-bold text-gray-900" id="totalDepartments">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="building" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Students</p>
+                            <p class="text-2xl font-bold text-gray-900" id="totalStudents">-</p>
+                        </div>
+                        <div class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                            <i data-lucide="users" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Program Management Interface -->
+            <div class="glass-card">
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-semibold text-gray-900">Programs</h3>
+                        <button onclick="adminDashboard.showCreateProgramModal()" class="btn btn-primary">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            Add Program
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filters -->
+                <div class="p-6 border-b border-gray-200">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                            <input type="text" id="programSearch" class="search-input" placeholder="Search programs...">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                            <select id="departmentFilter" class="form-select">
+                                <option value="">All Departments</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select id="statusFilter" class="form-select">
+                                <option value="">All Status</option>
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Programs Table -->
+                <div class="p-6">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program Code</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="programsTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Programs will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Analytics Tab -->
     <div id="analytics-tab" class="tab-content hidden">
         <div class="pt-24 pb-8">
@@ -947,6 +1155,22 @@ $user = $adminManager->getCurrentUser();
                                 </tbody>
                             </table>
                         </div>
+                        
+                        <!-- Login Logs Pagination -->
+                        <div id="loginLogsPagination" class="flex justify-center items-center mt-6 space-x-2 hidden">
+                            <button id="loginLogsPrevPage" class="btn btn-secondary btn-sm">
+                                <i data-lucide="chevron-left" class="w-4 h-4 mr-1"></i>
+                                Previous
+                            </button>
+                            <div id="loginLogsPageInfo" class="text-sm text-gray-600 mx-4">
+                                Page <span id="loginLogsCurrentPage">1</span> of <span id="loginLogsTotalPages">1</span>
+                                (<span id="loginLogsTotalCount">0</span> total records)
+                            </div>
+                            <button id="loginLogsNextPage" class="btn btn-secondary btn-sm">
+                                Next
+                                <i data-lucide="chevron-right" class="w-4 h-4 ml-1"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -978,6 +1202,22 @@ $user = $adminManager->getCurrentUser();
                                     <!-- Admin logs will be populated here by JS -->
                                 </tbody>
                             </table>
+                        </div>
+                        
+                        <!-- Admin Logs Pagination -->
+                        <div id="adminLogsPagination" class="flex justify-center items-center mt-6 space-x-2 hidden">
+                            <button id="adminLogsPrevPage" class="btn btn-secondary btn-sm">
+                                <i data-lucide="chevron-left" class="w-4 h-4 mr-1"></i>
+                                Previous
+                            </button>
+                            <div id="adminLogsPageInfo" class="text-sm text-gray-600 mx-4">
+                                Page <span id="adminLogsCurrentPage">1</span> of <span id="adminLogsTotalPages">1</span>
+                                (<span id="adminLogsTotalCount">0</span> total records)
+                            </div>
+                            <button id="adminLogsNextPage" class="btn btn-secondary btn-sm">
+                                Next
+                                <i data-lucide="chevron-right" class="w-4 h-4 ml-1"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1307,6 +1547,165 @@ $user = $adminManager->getCurrentUser();
                     <button onclick="adminDashboard.confirmDeleteUser()" class="btn btn-danger">
                         <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
                         Delete User
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Program Management Modals -->
+
+<!-- Create Program Modal -->
+<div id="createProgramModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900">Add New Program</h3>
+                    <button onclick="adminDashboard.closeModal('createProgramModal')" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                
+                <form id="createProgramForm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Program Code *</label>
+                            <input type="text" name="program_code" class="form-input" required placeholder="e.g., BSIT">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Program Name *</label>
+                            <input type="text" name="program_name" class="form-input" required placeholder="e.g., Bachelor of Science in Information Technology">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                            <input type="text" name="department" class="form-input" required placeholder="e.g., College of Computer Studies">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Duration (Years) *</label>
+                            <input type="number" name="duration_years" class="form-input" required min="1" max="10" value="4">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Total Units *</label>
+                            <input type="number" name="total_units" class="form-input" required min="1" value="120">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select name="is_active" class="form-select">
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                            <textarea name="description" class="form-textarea" rows="3" placeholder="Brief description of the program..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button type="button" onclick="adminDashboard.closeModal('createProgramModal')" class="btn btn-secondary">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                            Create Program
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Program Modal -->
+<div id="editProgramModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900">Edit Program</h3>
+                    <button onclick="adminDashboard.closeModal('editProgramModal')" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                
+                <form id="editProgramForm">
+                    <input type="hidden" name="program_id" id="editProgramId">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Program Code *</label>
+                            <input type="text" name="program_code" id="editProgramCode" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Program Name *</label>
+                            <input type="text" name="program_name" id="editProgramName" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                            <input type="text" name="department" id="editProgramDepartment" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Duration (Years) *</label>
+                            <input type="number" name="duration_years" id="editProgramDuration" class="form-input" required min="1" max="10">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Total Units *</label>
+                            <input type="number" name="total_units" id="editProgramUnits" class="form-input" required min="1">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select name="is_active" id="editProgramStatus" class="form-select">
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                            <textarea name="description" id="editProgramDescription" class="form-textarea" rows="3"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button type="button" onclick="adminDashboard.closeModal('editProgramModal')" class="btn btn-secondary">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                            Update Program
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Program Confirmation Modal -->
+<div id="deleteProgramModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="trash-2" class="w-8 h-8 text-red-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete Program</h3>
+                    <p class="text-gray-600">Are you sure you want to delete this program? This action cannot be undone.</p>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <p class="font-semibold" id="deleteProgramName">-</p>
+                    <p class="text-sm text-gray-600" id="deleteProgramCode">-</p>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button onclick="adminDashboard.closeModal('deleteProgramModal')" class="btn btn-secondary">
+                        Cancel
+                    </button>
+                    <button onclick="adminDashboard.confirmDeleteProgram()" class="btn btn-danger">
+                        <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
+                        Delete Program
                     </button>
                 </div>
             </div>

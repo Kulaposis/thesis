@@ -785,13 +785,28 @@ class WordViewer {
         })
         .then(data => {
             if (data.success) {
-                // Apply highlight visually
+                // Apply highlight visually with improved logic to prevent duplicates
                 if (window.selectedRange) {
                     try {
+                        // First, check if there are any existing highlights for this text
+                        const existingHighlights = document.querySelectorAll(`[data-highlight-id="${data.highlight_id}"]`);
+                        if (existingHighlights.length > 0) {
+                            console.log('Removing existing highlights to prevent duplicates');
+                            existingHighlights.forEach(highlight => {
+                                const parent = highlight.parentNode;
+                                if (parent) {
+                                    parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
+                                    parent.removeChild(highlight);
+                                }
+                            });
+                        }
+                        
+                        // Create a single highlight span
                         const highlightSpan = document.createElement('mark');
                         highlightSpan.style.backgroundColor = window.currentHighlightColor || '#ffeb3b';
                         highlightSpan.className = 'highlight-marker';
                         highlightSpan.dataset.highlightId = data.highlight_id;
+                        highlightSpan.textContent = window.selectedText;
                         
                         // Add click handler for commenting on highlights
                         highlightSpan.addEventListener('click', (e) => {
@@ -813,7 +828,36 @@ class WordViewer {
                             }
                         });
                         
-                        window.selectedRange.surroundContents(highlightSpan);
+                        // Use a more controlled approach to avoid multiple highlights
+                        try {
+                            // Try to use surroundContents first
+                            window.selectedRange.surroundContents(highlightSpan);
+                        } catch (surroundError) {
+                            console.log('surroundContents failed, using manual DOM manipulation');
+                            
+                            // Fallback: Manual DOM manipulation
+                            const range = window.selectedRange.cloneRange();
+                            const fragment = range.extractContents();
+                            highlightSpan.appendChild(fragment);
+                            range.insertNode(highlightSpan);
+                        }
+                        
+                        // Verify only one highlight was created
+                        const finalHighlights = document.querySelectorAll(`[data-highlight-id="${data.highlight_id}"]`);
+                        if (finalHighlights.length > 1) {
+                            console.warn(`Multiple highlights created (${finalHighlights.length}), cleaning up...`);
+                            // Keep only the first one, remove the rest
+                            for (let i = 1; i < finalHighlights.length; i++) {
+                                const highlight = finalHighlights[i];
+                                const parent = highlight.parentNode;
+                                if (parent) {
+                                    parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
+                                    parent.removeChild(highlight);
+                                }
+                            }
+                        }
+                        
+                        console.log(`Successfully created ${finalHighlights.length} highlight(s) for ID: ${data.highlight_id}`);
                     } catch (e) {
                         console.error('Error applying highlight:', e);
                     }

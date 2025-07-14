@@ -257,6 +257,96 @@ class AdminManager {
         }
     }
 
+    public function getLoginLogsWithPagination($limit = 20, $page = 1, $filters = []) {
+        try {
+            $where_conditions = [];
+            $params = [];
+            
+            // Build WHERE clause based on filters
+            if (!empty($filters['user_role'])) {
+                $where_conditions[] = "ll.user_role = :user_role";
+                $params[':user_role'] = $filters['user_role'];
+            }
+            
+            if (!empty($filters['action_type'])) {
+                $where_conditions[] = "ll.action_type = :action_type";
+                $params[':action_type'] = $filters['action_type'];
+            }
+            
+            if (!empty($filters['date_from'])) {
+                $where_conditions[] = "DATE(ll.created_at) >= :date_from";
+                $params[':date_from'] = $filters['date_from'];
+            }
+            
+            if (!empty($filters['date_to'])) {
+                $where_conditions[] = "DATE(ll.created_at) <= :date_to";
+                $params[':date_to'] = $filters['date_to'];
+            }
+            
+            if (!empty($filters['user_search'])) {
+                $where_conditions[] = "(u.full_name LIKE :user_search OR u.email LIKE :user_search)";
+                $params[':user_search'] = '%' . $filters['user_search'] . '%';
+            }
+            
+            $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+            
+            // Get total count
+            $countQuery = "SELECT COUNT(*) as total FROM login_logs ll JOIN users u ON ll.user_id = u.id {$where_clause}";
+            $countStmt = $this->conn->prepare($countQuery);
+            foreach ($params as $key => $value) {
+                $countStmt->bindValue($key, $value);
+            }
+            $countStmt->execute();
+            $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Calculate pagination
+            $totalPages = ceil($totalCount / $limit);
+            $offset = ($page - 1) * $limit;
+            
+            // Get paginated data
+            $query = "SELECT 
+                        ll.*,
+                        u.full_name,
+                        u.email,
+                        u.student_id,
+                        u.faculty_id,
+                        CASE 
+                            WHEN ll.session_duration IS NOT NULL THEN 
+                                CONCAT(
+                                    FLOOR(ll.session_duration / 3600), 'h ',
+                                    FLOOR((ll.session_duration % 3600) / 60), 'm ',
+                                    (ll.session_duration % 60), 's'
+                                )
+                            ELSE 'Active/Unknown'
+                        END as formatted_duration
+                     FROM login_logs ll
+                     JOIN users u ON ll.user_id = u.id
+                     {$where_clause}
+                     ORDER BY ll.created_at DESC
+                     LIMIT :limit OFFSET :offset";
+            
+            $stmt = $this->conn->prepare($query);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            return [
+                'logs' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                'current_page' => $page,
+                'total_pages' => $totalPages,
+                'total_count' => $totalCount,
+                'per_page' => $limit
+            ];
+            
+        } catch (Exception $e) {
+            error_log("Error getting login logs with pagination: " . $e->getMessage());
+            return false;
+        }
+    }
+
     public function getLoginStatistics($days = 30) {
         try {
             $stats = [];
@@ -1120,6 +1210,66 @@ class AdminManager {
         }
     }
 
+    public function getAdminLogsWithPagination($limit = 20, $page = 1, $filters = []) {
+        try {
+            $where_conditions = [];
+            $params = [];
+            
+            if (!empty($filters['admin_id'])) {
+                $where_conditions[] = "admin_id = :admin_id";
+                $params[':admin_id'] = $filters['admin_id'];
+            }
+            
+            if (!empty($filters['action'])) {
+                $where_conditions[] = "action LIKE :action";
+                $params[':action'] = '%' . $filters['action'] . '%';
+            }
+            
+            $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+            
+            // Get total count
+            $countQuery = "SELECT COUNT(*) as total FROM admin_logs al LEFT JOIN users u ON al.admin_id = u.id {$where_clause}";
+            $countStmt = $this->conn->prepare($countQuery);
+            foreach ($params as $key => $value) {
+                $countStmt->bindValue($key, $value);
+            }
+            $countStmt->execute();
+            $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Calculate pagination
+            $totalPages = ceil($totalCount / $limit);
+            $offset = ($page - 1) * $limit;
+            
+            // Get paginated data
+            $query = "SELECT al.*, u.full_name as admin_name 
+                     FROM admin_logs al
+                     LEFT JOIN users u ON al.admin_id = u.id
+                     {$where_clause}
+                     ORDER BY al.created_at DESC 
+                     LIMIT :limit OFFSET :offset";
+            
+            $stmt = $this->conn->prepare($query);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            return [
+                'logs' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                'current_page' => $page,
+                'total_pages' => $totalPages,
+                'total_count' => $totalCount,
+                'per_page' => $limit
+            ];
+            
+        } catch (Exception $e) {
+            error_log("Error getting admin logs with pagination: " . $e->getMessage());
+            return false;
+        }
+    }
+
     // ========================================
     // UTILITY FUNCTIONS
     // ========================================
@@ -1198,6 +1348,267 @@ class AdminManager {
             'super_admin' => 'Super Admin'
         ];
         return $roles[$role] ?? ucfirst($role);
+    }
+
+    // ========================================
+    // PROGRAM MANAGEMENT FUNCTIONS
+    // ========================================
+
+    public function getAllPrograms($filters = []) {
+        try {
+            $where_conditions = [];
+            $params = [];
+            
+            if (!empty($filters['department'])) {
+                $where_conditions[] = "department = :department";
+                $params[':department'] = $filters['department'];
+            }
+            
+            if (!empty($filters['is_active'])) {
+                $where_conditions[] = "is_active = :is_active";
+                $params[':is_active'] = $filters['is_active'];
+            }
+            
+            if (!empty($filters['search'])) {
+                $where_conditions[] = "(program_code LIKE :search OR program_name LIKE :search OR department LIKE :search)";
+                $params[':search'] = '%' . $filters['search'] . '%';
+            }
+            
+            $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+            
+            $query = "SELECT * FROM programs {$where_clause} ORDER BY department, program_name";
+            $stmt = $this->conn->prepare($query);
+            
+            foreach ($params as $key => $value) {
+                $stmt->bindParam($key, $value);
+            }
+            
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error getting all programs: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getProgramById($programId) {
+        try {
+            $query = "SELECT * FROM programs WHERE id = :id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':id', $programId);
+            $stmt->execute();
+            
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error getting program by ID: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function createProgram($programData) {
+        try {
+            // Check if program code already exists
+            $checkQuery = "SELECT id FROM programs WHERE program_code = :program_code";
+            $checkStmt = $this->conn->prepare($checkQuery);
+            $checkStmt->bindParam(':program_code', $programData['program_code']);
+            $checkStmt->execute();
+            
+            if ($checkStmt->fetch()) {
+                return ['success' => false, 'message' => 'Program code already exists'];
+            }
+            
+            $query = "INSERT INTO programs (program_code, program_name, department, description, duration_years, total_units, is_active) 
+                     VALUES (:program_code, :program_name, :department, :description, :duration_years, :total_units, :is_active)";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':program_code', $programData['program_code']);
+            $stmt->bindParam(':program_name', $programData['program_name']);
+            $stmt->bindParam(':department', $programData['department']);
+            $stmt->bindParam(':description', $programData['description']);
+            $stmt->bindParam(':duration_years', $programData['duration_years']);
+            $stmt->bindParam(':total_units', $programData['total_units']);
+            $stmt->bindParam(':is_active', $programData['is_active']);
+            
+            if ($stmt->execute()) {
+                $programId = $this->conn->lastInsertId();
+                
+                // Log the action
+                $this->logAdminAction('create_program', 'program', $programId, json_encode($programData));
+                
+                return ['success' => true, 'program_id' => $programId];
+            }
+            
+            return ['success' => false, 'message' => 'Failed to create program'];
+            
+        } catch (Exception $e) {
+            error_log("Error creating program: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Database error occurred'];
+        }
+    }
+
+    public function updateProgram($programId, $programData) {
+        try {
+            // Check if program code already exists for other programs
+            $checkQuery = "SELECT id FROM programs WHERE program_code = :program_code AND id != :id";
+            $checkStmt = $this->conn->prepare($checkQuery);
+            $checkStmt->bindParam(':program_code', $programData['program_code']);
+            $checkStmt->bindParam(':id', $programId);
+            $checkStmt->execute();
+            
+            if ($checkStmt->fetch()) {
+                return ['success' => false, 'message' => 'Program code already exists'];
+            }
+            
+            $query = "UPDATE programs SET 
+                     program_code = :program_code,
+                     program_name = :program_name,
+                     department = :department,
+                     description = :description,
+                     duration_years = :duration_years,
+                     total_units = :total_units,
+                     is_active = :is_active,
+                     updated_at = CURRENT_TIMESTAMP
+                     WHERE id = :id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':program_code', $programData['program_code']);
+            $stmt->bindParam(':program_name', $programData['program_name']);
+            $stmt->bindParam(':department', $programData['department']);
+            $stmt->bindParam(':description', $programData['description']);
+            $stmt->bindParam(':duration_years', $programData['duration_years']);
+            $stmt->bindParam(':total_units', $programData['total_units']);
+            $stmt->bindParam(':is_active', $programData['is_active']);
+            $stmt->bindParam(':id', $programId);
+            
+            if ($stmt->execute()) {
+                // Log the action
+                $this->logAdminAction('update_program', 'program', $programId, json_encode($programData));
+                
+                return ['success' => true];
+            }
+            
+            return ['success' => false, 'message' => 'Failed to update program'];
+            
+        } catch (Exception $e) {
+            error_log("Error updating program: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Database error occurred'];
+        }
+    }
+
+    public function deleteProgram($programId) {
+        try {
+            // Check if program is being used by any users
+            $checkQuery = "SELECT COUNT(*) as count FROM users WHERE program = (SELECT program_code FROM programs WHERE id = :id)";
+            $checkStmt = $this->conn->prepare($checkQuery);
+            $checkStmt->bindParam(':id', $programId);
+            $checkStmt->execute();
+            
+            $userCount = $checkStmt->fetch(PDO::FETCH_ASSOC)['count'];
+            
+            if ($userCount > 0) {
+                return ['success' => false, 'message' => "Cannot delete program. It is currently assigned to {$userCount} user(s)."];
+            }
+            
+            $query = "DELETE FROM programs WHERE id = :id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':id', $programId);
+            
+            if ($stmt->execute()) {
+                // Log the action
+                $this->logAdminAction('delete_program', 'program', $programId);
+                
+                return ['success' => true];
+            }
+            
+            return ['success' => false, 'message' => 'Failed to delete program'];
+            
+        } catch (Exception $e) {
+            error_log("Error deleting program: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Database error occurred'];
+        }
+    }
+
+    public function getProgramsByDepartment($department = null) {
+        try {
+            $query = "SELECT * FROM programs WHERE is_active = 1";
+            $params = [];
+            
+            if ($department) {
+                $query .= " AND department = :department";
+                $params[':department'] = $department;
+            }
+            
+            $query .= " ORDER BY program_name";
+            
+            $stmt = $this->conn->prepare($query);
+            foreach ($params as $key => $value) {
+                $stmt->bindParam($key, $value);
+            }
+            
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error getting programs by department: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getDepartments() {
+        try {
+            $query = "SELECT DISTINCT department FROM programs WHERE is_active = 1 ORDER BY department";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+        } catch (Exception $e) {
+            error_log("Error getting departments: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getProgramStatistics() {
+        try {
+            $stats = [];
+            
+            // Total programs
+            $query = "SELECT COUNT(*) as count FROM programs";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $stats['total_programs'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+            
+            // Active programs
+            $query = "SELECT COUNT(*) as count FROM programs WHERE is_active = 1";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $stats['active_programs'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+            
+            // Programs by department
+            $query = "SELECT department, COUNT(*) as count FROM programs WHERE is_active = 1 GROUP BY department";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $stats['programs_by_department'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Students per program
+            $query = "SELECT p.program_code, p.program_name, COUNT(u.id) as student_count 
+                     FROM programs p 
+                     LEFT JOIN users u ON p.program_code = u.program AND u.role = 'student'
+                     WHERE p.is_active = 1 
+                     GROUP BY p.id, p.program_code, p.program_name
+                     ORDER BY student_count DESC";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $stats['students_per_program'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return $stats;
+            
+        } catch (Exception $e) {
+            error_log("Error getting program statistics: " . $e->getMessage());
+            return false;
+        }
     }
 }
 ?>

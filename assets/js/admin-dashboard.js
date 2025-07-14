@@ -7,6 +7,14 @@ class AdminDashboard {
         this.allUsers = [];
         this.filteredUsers = [];
         this.currentUserForDelete = null;
+        this.currentProgramForDelete = null;
+        
+        // Pagination properties
+        this.currentLoginLogsPage = 1;
+        this.currentAdminLogsPage = 1;
+        this.loginLogsFilters = {};
+        this.adminLogsFilters = {};
+        
         this.init();
     }
 
@@ -56,6 +64,9 @@ class AdminDashboard {
                     // Load data for specific tabs
                     if (targetTab === 'users') {
                         this.loadUsers();
+                    } else if (targetTab === 'programs') {
+                        this.loadPrograms();
+                        this.loadProgramStatistics(); // Ensure statistics update on tab switch
                     } else if (targetTab === 'logs') {
                         this.loadLoginLogs();
                         // Load recent admin activity for the card at the top
@@ -125,6 +136,23 @@ class AdminDashboard {
                 this.updateUser();
             });
         }
+
+        // Program management form submissions
+        const createProgramForm = document.getElementById('createProgramForm');
+        if (createProgramForm) {
+            createProgramForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.createProgram();
+            });
+        }
+
+        const editProgramForm = document.getElementById('editProgramForm');
+        if (editProgramForm) {
+            editProgramForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.updateProgram();
+            });
+        }
     }
 
     initUserManagement() {
@@ -152,6 +180,64 @@ class AdminDashboard {
             userSearch.addEventListener('input', this.debounce(() => {
                 this.filterUsers();
             }, 300));
+        }
+
+        // Program search and filter inputs
+        const programSearch = document.getElementById('programSearch');
+        if (programSearch) {
+            programSearch.addEventListener('input', this.debounce(() => {
+                this.filterPrograms();
+            }, 300));
+        }
+
+        const departmentFilter = document.getElementById('departmentFilter');
+        if (departmentFilter) {
+            departmentFilter.addEventListener('change', () => {
+                this.filterPrograms();
+            });
+        }
+
+        const statusFilter = document.getElementById('statusFilter');
+        if (statusFilter) {
+            statusFilter.addEventListener('change', () => {
+                this.filterPrograms();
+            });
+        }
+
+        // Login logs pagination
+        const loginLogsPrevBtn = document.getElementById('loginLogsPrevPage');
+        const loginLogsNextBtn = document.getElementById('loginLogsNextPage');
+        
+        if (loginLogsPrevBtn) {
+            loginLogsPrevBtn.addEventListener('click', () => {
+                if (this.currentLoginLogsPage > 1) {
+                    this.loadLoginLogs(this.currentLoginLogsPage - 1);
+                }
+            });
+        }
+        
+        if (loginLogsNextBtn) {
+            loginLogsNextBtn.addEventListener('click', () => {
+                this.loadLoginLogs(this.currentLoginLogsPage + 1);
+            });
+        }
+
+        // Admin logs pagination
+        const adminLogsPrevBtn = document.getElementById('adminLogsPrevPage');
+        const adminLogsNextBtn = document.getElementById('adminLogsNextPage');
+        
+        if (adminLogsPrevBtn) {
+            adminLogsPrevBtn.addEventListener('click', () => {
+                if (this.currentAdminLogsPage > 1) {
+                    this.loadAdminLogs(this.currentAdminLogsPage - 1);
+                }
+            });
+        }
+        
+        if (adminLogsNextBtn) {
+            adminLogsNextBtn.addEventListener('click', () => {
+                this.loadAdminLogs(this.currentAdminLogsPage + 1);
+            });
         }
     }
 
@@ -943,30 +1029,54 @@ class AdminDashboard {
     }
 
     // Login Logs functionality
-    async loadLoginLogs() {
+
+    async loadLoginLogs(page = 1) {
+        this.currentLoginLogsPage = page;
         const logsTableBody = document.getElementById('loginLogsTableBody');
         if (logsTableBody) logsTableBody.innerHTML = '';
+        
+        // Show loading spinner
+        const logsLoading = document.getElementById('loginLogsLoading');
+        if (logsLoading) logsLoading.classList.remove('hidden');
+        
         try {
             console.log('Loading login logs...');
+            const params = new URLSearchParams();
+            params.append('action', 'get_login_logs');
+            params.append('limit', '20');
+            params.append('page', page.toString());
+            
+            // Add current filters
+            Object.keys(this.loginLogsFilters).forEach(key => {
+                if (this.loginLogsFilters[key]) {
+                    params.append(key, this.loginLogsFilters[key]);
+                }
+            });
+            
             const response = await fetch('admin_dashboard.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=get_login_logs&limit=50'
+                body: params.toString()
             });
             const data = await response.json();
             console.log('Login logs loaded:', data);
             if (data.success) {
                 this.renderLoginLogs(data.logs);
+                this.updateLoginLogsPagination(data.pagination);
                 // Force-populate Recent Admin Activity with the same logs
                 this.renderRecentAdminActivity(data.logs);
             } else {
                 this.renderLoginLogs([]);
                 this.renderRecentAdminActivity([]);
+                this.hideLoginLogsPagination();
             }
         } catch (error) {
             console.error('Error loading login logs:', error);
             this.renderLoginLogs([]);
             this.renderRecentAdminActivity([]);
+            this.hideLoginLogsPagination();
+        } finally {
+            if (logsLoading) logsLoading.classList.add('hidden');
         }
     }
 
@@ -1041,39 +1151,17 @@ class AdminDashboard {
         const dateTo = document.getElementById('loginLogDateTo').value;
         const userSearch = document.getElementById('loginLogUserSearch').value;
 
-        // Build form data for the AJAX request
-        const params = new URLSearchParams();
-        params.append('action', 'get_login_logs');
-        params.append('user_role', userRole);
-        params.append('action_type', actionType);
-        params.append('date_from', dateFrom);
-        params.append('date_to', dateTo);
-        params.append('user_search', userSearch);
-        params.append('limit', 100);
+        // Store filters for pagination
+        this.loginLogsFilters = {
+            user_role: userRole,
+            action_type: actionType,
+            date_from: dateFrom,
+            date_to: dateTo,
+            user_search: userSearch
+        };
 
-        // Show loading spinner
-        const logsLoading = document.getElementById('loginLogsLoading');
-        if (logsLoading) logsLoading.classList.remove('hidden');
-
-        fetch('admin_dashboard.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString()
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                this.renderLoginLogs(data.logs || []);
-            } else {
-                throw new Error(data.error || 'Failed to load login logs');
-            }
-        })
-        .catch(error => {
-            this.showNotification('Error loading login logs: ' + error.message, 'error');
-        })
-        .finally(() => {
-            if (logsLoading) logsLoading.classList.add('hidden');
-        });
+        // Reset to first page and load with filters
+        this.loadLoginLogs(1);
     }
 
     clearLoginLogFilters() {
@@ -1082,7 +1170,35 @@ class AdminDashboard {
         document.getElementById('loginLogDateFrom').value = '';
         document.getElementById('loginLogDateTo').value = '';
         document.getElementById('loginLogUserSearch').value = '';
-        this.loadLoginLogs();
+        this.loginLogsFilters = {};
+        this.loadLoginLogs(1);
+    }
+
+    updateLoginLogsPagination(pagination) {
+        const paginationContainer = document.getElementById('loginLogsPagination');
+        const currentPageSpan = document.getElementById('loginLogsCurrentPage');
+        const totalPagesSpan = document.getElementById('loginLogsTotalPages');
+        const totalCountSpan = document.getElementById('loginLogsTotalCount');
+        const prevButton = document.getElementById('loginLogsPrevPage');
+        const nextButton = document.getElementById('loginLogsNextPage');
+
+        if (pagination && pagination.total_pages > 1) {
+            currentPageSpan.textContent = pagination.current_page;
+            totalPagesSpan.textContent = pagination.total_pages;
+            totalCountSpan.textContent = pagination.total_count;
+            
+            prevButton.disabled = pagination.current_page <= 1;
+            nextButton.disabled = pagination.current_page >= pagination.total_pages;
+            
+            paginationContainer.classList.remove('hidden');
+        } else {
+            paginationContainer.classList.add('hidden');
+        }
+    }
+
+    hideLoginLogsPagination() {
+        const paginationContainer = document.getElementById('loginLogsPagination');
+        paginationContainer.classList.add('hidden');
     }
 
     // Analytics functionality
@@ -1545,22 +1661,36 @@ class AdminDashboard {
     }
 
     // Admin logs functionality
-    async loadAdminLogs() {
+    async loadAdminLogs(page = 1) {
+        this.currentAdminLogsPage = page;
         try {
             console.log('Loading admin logs...');
+            
+            const params = new URLSearchParams();
+            params.append('action', 'get_admin_logs');
+            params.append('limit', '20');
+            params.append('page', page.toString());
+            
+            // Add current filters
+            Object.keys(this.adminLogsFilters).forEach(key => {
+                if (this.adminLogsFilters[key]) {
+                    params.append(key, this.adminLogsFilters[key]);
+                }
+            });
             
             const response = await fetch('admin_dashboard.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'action=get_admin_logs'
+                body: params.toString()
             });
 
             const data = await response.json();
             
             if (data.success) {
                 this.renderAdminLogs(data.logs);
+                this.updateAdminLogsPagination(data.pagination);
             } else {
                 throw new Error(data.message || 'Failed to load admin logs');
             }
@@ -1568,6 +1698,7 @@ class AdminDashboard {
         } catch (error) {
             console.error('Error loading admin logs:', error);
             this.showNotification('Error loading admin logs: ' + error.message, 'error');
+            this.hideAdminLogsPagination();
         }
     }
 
@@ -1612,6 +1743,33 @@ class AdminDashboard {
         if (window.lucide) {
             window.lucide.createIcons();
         }
+    }
+
+    updateAdminLogsPagination(pagination) {
+        const paginationContainer = document.getElementById('adminLogsPagination');
+        const currentPageSpan = document.getElementById('adminLogsCurrentPage');
+        const totalPagesSpan = document.getElementById('adminLogsTotalPages');
+        const totalCountSpan = document.getElementById('adminLogsTotalCount');
+        const prevButton = document.getElementById('adminLogsPrevPage');
+        const nextButton = document.getElementById('adminLogsNextPage');
+
+        if (pagination && pagination.total_pages > 1) {
+            currentPageSpan.textContent = pagination.current_page;
+            totalPagesSpan.textContent = pagination.total_pages;
+            totalCountSpan.textContent = pagination.total_count;
+            
+            prevButton.disabled = pagination.current_page <= 1;
+            nextButton.disabled = pagination.current_page >= pagination.total_pages;
+            
+            paginationContainer.classList.remove('hidden');
+        } else {
+            paginationContainer.classList.add('hidden');
+        }
+    }
+
+    hideAdminLogsPagination() {
+        const paginationContainer = document.getElementById('adminLogsPagination');
+        paginationContainer.classList.add('hidden');
     }
 
     async loadRecentAdminActivity() {
@@ -1663,6 +1821,374 @@ class AdminDashboard {
         console.log('Loading announcements...');
         // Basic implementation - can be expanded later
         this.showNotification('Announcements tab loaded', 'info');
+    }
+
+    // ========================================
+    // PROGRAM MANAGEMENT FUNCTIONS
+    // ========================================
+
+    async loadPrograms() {
+        try {
+            const search = document.getElementById('programSearch')?.value || '';
+            const department = document.getElementById('departmentFilter')?.value || '';
+            const status = document.getElementById('statusFilter')?.value || '';
+
+            const params = new URLSearchParams({
+                action: 'get_programs',
+                search: search,
+                department: department,
+                is_active: status
+            });
+
+            const response = await fetch('admin_dashboard.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString()
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderPrograms(data.programs);
+                this.loadProgramStatistics();
+                this.loadDepartments();
+            } else {
+                throw new Error(data.message || 'Failed to load programs');
+            }
+            
+        } catch (error) {
+            console.error('Error loading programs:', error);
+            this.showNotification('Error loading programs: ' + error.message, 'error');
+        }
+    }
+
+    renderPrograms(programs) {
+        const programsTableBody = document.getElementById('programsTableBody');
+        if (!programsTableBody) {
+            console.error('Programs table body not found');
+            return;
+        }
+
+        if (!programs || programs.length === 0) {
+            programsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-8">
+                        <i data-lucide="graduation-cap" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+                        <p class="text-gray-500">No programs found</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        programsTableBody.innerHTML = programs.map(program => `
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="font-medium text-gray-900">${this.escapeHtml(program.program_code)}</span>
+                </td>
+                <td class="px-6 py-4">
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">${this.escapeHtml(program.program_name)}</div>
+                        <div class="text-sm text-gray-500">${this.escapeHtml(program.description || '')}</div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="text-sm text-gray-900">${this.escapeHtml(program.department)}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="text-sm text-gray-900">${program.duration_years} years</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="text-sm text-gray-900">${program.total_units} units</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="badge ${program.is_active == 1 ? 'badge-success' : 'badge-warning'}">
+                        ${program.is_active == 1 ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex space-x-2">
+                        <button onclick="adminDashboard.editProgram(${program.id})" class="btn btn-warning btn-sm" data-tooltip="Edit">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="adminDashboard.deleteProgram(${program.id})" class="btn btn-danger btn-sm" data-tooltip="Delete">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        // Re-initialize Lucide icons for new content
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    }
+
+    async loadProgramStatistics() {
+        try {
+            const response = await fetch('admin_dashboard.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=get_program_statistics'
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                const stats = data.statistics;
+                this.updateStat('totalPrograms', stats.total_programs || 0);
+                this.updateStat('activePrograms', stats.active_programs || 0);
+                this.updateStat('totalDepartments', stats.programs_by_department?.length || 0);
+                
+                // Calculate total students from programs
+                const totalStudents = stats.students_per_program?.reduce((sum, program) => sum + (program.student_count || 0), 0) || 0;
+                this.updateStat('totalStudents', totalStudents);
+            }
+            
+        } catch (error) {
+            console.error('Error loading program statistics:', error);
+        }
+    }
+
+    async loadDepartments() {
+        try {
+            const response = await fetch('admin_dashboard.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=get_departments'
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                const departmentFilter = document.getElementById('departmentFilter');
+                if (departmentFilter) {
+                    // Keep the current selection
+                    const currentValue = departmentFilter.value;
+                    
+                    // Clear existing options except the first one
+                    departmentFilter.innerHTML = '<option value="">All Departments</option>';
+                    
+                    // Add new options
+                    data.departments.forEach(department => {
+                        const option = document.createElement('option');
+                        option.value = department;
+                        option.textContent = department;
+                        departmentFilter.appendChild(option);
+                    });
+                    
+                    // Restore the current selection if it still exists
+                    if (currentValue) {
+                        departmentFilter.value = currentValue;
+                    }
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error loading departments:', error);
+        }
+    }
+
+    showCreateProgramModal() {
+        const modal = document.getElementById('createProgramModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            // Reset form
+            document.getElementById('createProgramForm').reset();
+        }
+    }
+
+    async createProgram() {
+        try {
+            const form = document.getElementById('createProgramForm');
+            const formData = new FormData(form);
+            
+            const params = new URLSearchParams({
+                action: 'create_program',
+                program_code: formData.get('program_code'),
+                program_name: formData.get('program_name'),
+                department: formData.get('department'),
+                description: formData.get('description'),
+                duration_years: formData.get('duration_years'),
+                total_units: formData.get('total_units'),
+                is_active: formData.get('is_active')
+            });
+
+            const response = await fetch('admin_dashboard.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString()
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showNotification('Program created successfully!', 'success');
+                this.closeModal('createProgramModal');
+                this.loadPrograms();
+            } else {
+                throw new Error(data.message || 'Failed to create program');
+            }
+            
+        } catch (error) {
+            console.error('Error creating program:', error);
+            this.showNotification('Error creating program: ' + error.message, 'error');
+        }
+    }
+
+    async editProgram(programId) {
+        try {
+            const params = new URLSearchParams({
+                action: 'get_program',
+                program_id: programId
+            });
+
+            const response = await fetch('admin_dashboard.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString()
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                const program = data.program;
+                
+                // Populate the edit form
+                document.getElementById('editProgramId').value = program.id;
+                document.getElementById('editProgramCode').value = program.program_code;
+                document.getElementById('editProgramName').value = program.program_name;
+                document.getElementById('editProgramDepartment').value = program.department;
+                document.getElementById('editProgramDescription').value = program.description || '';
+                document.getElementById('editProgramDuration').value = program.duration_years;
+                document.getElementById('editProgramUnits').value = program.total_units;
+                document.getElementById('editProgramStatus').value = program.is_active;
+                
+                // Show the modal
+                document.getElementById('editProgramModal').classList.remove('hidden');
+            } else {
+                throw new Error(data.message || 'Failed to load program details');
+            }
+            
+        } catch (error) {
+            console.error('Error loading program details:', error);
+            this.showNotification('Error loading program details: ' + error.message, 'error');
+        }
+    }
+
+    async updateProgram() {
+        try {
+            const form = document.getElementById('editProgramForm');
+            const formData = new FormData(form);
+            
+            const params = new URLSearchParams({
+                action: 'update_program',
+                program_id: formData.get('program_id'),
+                program_code: formData.get('program_code'),
+                program_name: formData.get('program_name'),
+                department: formData.get('department'),
+                description: formData.get('description'),
+                duration_years: formData.get('duration_years'),
+                total_units: formData.get('total_units'),
+                is_active: formData.get('is_active')
+            });
+
+            const response = await fetch('admin_dashboard.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString()
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showNotification('Program updated successfully!', 'success');
+                this.closeModal('editProgramModal');
+                this.loadPrograms();
+            } else {
+                throw new Error(data.message || 'Failed to update program');
+            }
+            
+        } catch (error) {
+            console.error('Error updating program:', error);
+            this.showNotification('Error updating program: ' + error.message, 'error');
+        }
+    }
+
+    deleteProgram(programId) {
+        // Store the program ID for deletion confirmation
+        this.currentProgramForDelete = programId;
+        
+        // Show the delete confirmation modal
+        const modal = document.getElementById('deleteProgramModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            
+            // You might want to fetch and display program details here
+            // For now, we'll just show a generic message
+            document.getElementById('deleteProgramName').textContent = 'Program';
+            document.getElementById('deleteProgramCode').textContent = 'ID: ' + programId;
+        }
+    }
+
+    async confirmDeleteProgram() {
+        try {
+            if (!this.currentProgramForDelete) {
+                throw new Error('No program selected for deletion');
+            }
+
+            const params = new URLSearchParams({
+                action: 'delete_program',
+                program_id: this.currentProgramForDelete
+            });
+
+            const response = await fetch('admin_dashboard.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString()
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showNotification('Program deleted successfully!', 'success');
+                this.closeModal('deleteProgramModal');
+                this.loadPrograms();
+                this.currentProgramForDelete = null;
+            } else {
+                throw new Error(data.message || 'Failed to delete program');
+            }
+            
+        } catch (error) {
+            console.error('Error deleting program:', error);
+            this.showNotification('Error deleting program: ' + error.message, 'error');
+        }
+    }
+
+    filterPrograms() {
+        this.loadPrograms();
+    }
+
+    clearProgramFilters() {
+        document.getElementById('programSearch').value = '';
+        document.getElementById('departmentFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        this.loadPrograms();
     }
 }
 
@@ -1717,4 +2243,26 @@ document.addEventListener('DOMContentLoaded', () => {
             window.adminDashboard.refreshCharts();
         }
     }, 2000);
+}); 
+
+// === Program Statistics Dynamic Update ===
+function loadProgramStatistics() {
+    fetch('admin_dashboard.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'action=get_program_statistics'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.statistics) {
+            document.getElementById('totalPrograms').textContent = data.statistics.total_programs ?? 0;
+            document.getElementById('activePrograms').textContent = data.statistics.active_programs ?? 0;
+            document.getElementById('totalDepartments').textContent = data.statistics.departments ?? 0;
+            document.getElementById('totalStudents').textContent = data.statistics.total_students ?? 0;
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadProgramStatistics();
 }); 

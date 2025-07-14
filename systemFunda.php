@@ -841,7 +841,9 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     
                     <div class="mb-4">
                       <label class="block text-gray-700 text-sm font-medium mb-2" for="program">Program</label>
-                      <input type="text" id="program" name="program" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                      <select id="program" name="program" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Select Program --</option>
+                      </select>
                     </div>
                   </div>
                   
@@ -2515,8 +2517,29 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
       const closeAddStudentModal = document.getElementById('closeAddStudentModal');
       const cancelAddStudent = document.getElementById('cancelAddStudent');
       
+      // Fetch and populate programs dropdown
+      function loadProgramsDropdown() {
+        const programSelect = document.getElementById('program');
+        if (!programSelect) return;
+        // Clear existing options except the first
+        programSelect.innerHTML = '<option value="">-- Select Program --</option>';
+        fetch('api/add_student_to_adviser.php?action=get_programs')
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && Array.isArray(data.programs)) {
+              data.programs.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.program_code;
+                opt.textContent = `${p.program_name} (${p.department})`;
+                programSelect.appendChild(opt);
+              });
+            }
+          });
+      }
+      
       if (addStudentBtn) {
         addStudentBtn.addEventListener('click', function() {
+          loadProgramsDropdown();
           addStudentModal.classList.remove('hidden');
         });
       }
@@ -3766,6 +3789,14 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           }
         });
         
+        // Also clean up any duplicate highlights that might exist
+        if (typeof window.cleanupDuplicateHighlights === 'function') {
+          const duplicatesRemoved = window.cleanupDuplicateHighlights();
+          if (duplicatesRemoved > 0) {
+            console.log(`🧹 Cleaned up ${duplicatesRemoved} duplicate highlights before applying new ones`);
+          }
+        }
+        
         let appliedCount = 0;
         highlights.forEach((highlight, index) => {
           console.log(`Applying highlight ${index + 1}/${highlights.length}:`, highlight.highlighted_text);
@@ -3814,9 +3845,23 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         
         // Check if this highlight already exists to prevent duplicates
-        const existingHighlight = document.querySelector(`[data-highlight-id="${highlight.id}"]`);
-        if (existingHighlight) {
-          console.log('Highlight already exists, skipping:', highlight.id);
+        const existingHighlights = document.querySelectorAll(`[data-highlight-id="${highlight.id}"]`);
+        if (existingHighlights.length > 0) {
+          console.log(`Found ${existingHighlights.length} existing highlight(s) for ID: ${highlight.id}, cleaning up...`);
+          
+          // If there are multiple highlights, keep only the first one
+          if (existingHighlights.length > 1) {
+            for (let i = 1; i < existingHighlights.length; i++) {
+              const highlightElement = existingHighlights[i];
+              const parent = highlightElement.parentNode;
+              if (parent) {
+                parent.insertBefore(document.createTextNode(highlightElement.textContent), highlightElement);
+                parent.removeChild(highlightElement);
+              }
+            }
+            console.log(`Removed ${existingHighlights.length - 1} duplicate highlights, keeping 1`);
+          }
+          
           return true; // Consider this a success since it exists
         }
         
@@ -4496,6 +4541,36 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               
               try {
                 window.applyHighlightsToFullscreen(data.highlights);
+                
+                // Force highlight visibility after application
+                setTimeout(() => {
+                  const highlights = document.querySelectorAll('.fullscreen-highlight, .highlight-marker');
+                  console.log(`[Fullscreen] Found ${highlights.length} highlights after application`);
+                  
+                  highlights.forEach((highlight, index) => {
+                    // Force visibility and styling
+                    highlight.style.cssText = `
+                      background-color: ${highlight.dataset.highlightColor || '#ffeb3b'} !important;
+                      color: inherit !important;
+                      position: relative !important;
+                      cursor: pointer !important;
+                      display: inline !important;
+                      z-index: 1000 !important;
+                      transition: all 0.2s ease !important;
+                      padding: 2px 4px !important;
+                      border-radius: 3px !important;
+                      border: 1px solid rgba(0,0,0,0.1) !important;
+                      visibility: visible !important;
+                      opacity: 1 !important;
+                    `;
+                    
+                    console.log(`[Fullscreen] Forced visibility for highlight ${index + 1}:`, highlight.textContent.substring(0, 30));
+                  });
+                  
+                  if (highlights.length > 0) {
+                    console.log(`[Fullscreen] ✅ Successfully made ${highlights.length} highlights visible`);
+                  }
+                }, 300);
               } catch (error) {
                 console.error('[Fullscreen] Error applying highlights:', error);
                 console.error('[Fullscreen] Problematic highlights data:', data.highlights);
@@ -4932,6 +5007,113 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               window.fixFullscreenHighlights();
             }, 2000);
           }
+        }
+        
+        return fixedCount;
+      };
+
+      // Function to clean up duplicate highlights globally
+      window.cleanupDuplicateHighlights = function() {
+        console.log('🧹 [CLEANUP] Starting duplicate highlight cleanup...');
+        
+        // Get all highlight IDs
+        const allHighlights = document.querySelectorAll('[data-highlight-id]');
+        const highlightIds = new Set();
+        const duplicates = {};
+        
+        // Find all unique highlight IDs
+        allHighlights.forEach(highlight => {
+          const id = highlight.dataset.highlightId;
+          if (id) {
+            highlightIds.add(id);
+            if (!duplicates[id]) {
+              duplicates[id] = [];
+            }
+            duplicates[id].push(highlight);
+          }
+        });
+        
+        let totalRemoved = 0;
+        
+        // Clean up duplicates for each ID
+        highlightIds.forEach(id => {
+          const highlights = duplicates[id];
+          if (highlights.length > 1) {
+            console.log(`🧹 [CLEANUP] Found ${highlights.length} duplicates for highlight ID: ${id}`);
+            
+            // Keep the first one, remove the rest
+            for (let i = 1; i < highlights.length; i++) {
+              const highlight = highlights[i];
+              const parent = highlight.parentNode;
+              if (parent) {
+                parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
+                parent.removeChild(highlight);
+                totalRemoved++;
+              }
+            }
+            
+            console.log(`🧹 [CLEANUP] Removed ${highlights.length - 1} duplicates for ID: ${id}`);
+          }
+        });
+        
+        console.log(`🧹 [CLEANUP] ✅ Cleanup complete. Removed ${totalRemoved} duplicate highlights`);
+        return totalRemoved;
+      };
+
+      // Quick fix function for fullscreen highlights - can be called manually
+      window.fixFullscreenHighlightsNow = function() {
+        console.log('🔧 [QUICK FIX] Fixing fullscreen highlights immediately...');
+        
+        if (!window.currentChapterId) {
+          console.error('❌ No current chapter ID found');
+          return;
+        }
+        
+        // Check if we're in fullscreen mode
+        const fullscreenModal = document.querySelector('.document-fullscreen-modal.active');
+        if (!fullscreenModal) {
+          console.error('❌ Not in fullscreen mode');
+          return;
+        }
+        
+        // Find all highlights in fullscreen
+        const highlights = fullscreenModal.querySelectorAll('.fullscreen-highlight, .highlight-marker, mark[data-highlight-id]');
+        console.log(`🔧 [QUICK FIX] Found ${highlights.length} highlights to fix`);
+        
+        let fixedCount = 0;
+        highlights.forEach((highlight, index) => {
+          // Force visibility with enhanced styling
+          highlight.style.cssText = `
+            background-color: #ffeb3b !important;
+            color: inherit !important;
+            position: relative !important;
+            cursor: pointer !important;
+            display: inline !important;
+            z-index: 1000 !important;
+            transition: all 0.2s ease !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            border: 1px solid rgba(0,0,0,0.1) !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            font-weight: bold !important;
+            text-decoration: none !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+          `;
+          
+          // Add a class to identify fixed highlights
+          highlight.classList.add('fullscreen-fixed');
+          
+          fixedCount++;
+          console.log(`🔧 [QUICK FIX] Fixed highlight ${index + 1}:`, highlight.textContent.substring(0, 30));
+        });
+        
+        console.log(`🔧 [QUICK FIX] ✅ Fixed ${fixedCount} highlights`);
+        
+        // If no highlights found, try to reload them
+        if (highlights.length === 0) {
+          console.log('🔧 [QUICK FIX] No highlights found, attempting to reload...');
+          window.loadHighlightsInFullscreen(window.currentChapterId);
         }
         
         return fixedCount;
@@ -5440,12 +5622,26 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         
         // Check if this highlight already exists to prevent duplicates
-        const existingHighlight = document.querySelector(`[data-highlight-id="${highlight.id}"]`);
-        if (existingHighlight) {
-          console.log('[Fullscreen] Highlight already exists, checking visibility:', highlight.id);
+        const existingHighlights = document.querySelectorAll(`[data-highlight-id="${highlight.id}"]`);
+        if (existingHighlights.length > 0) {
+          console.log(`[Fullscreen] Found ${existingHighlights.length} existing highlight(s) for ID: ${highlight.id}, cleaning up...`);
           
-          // Check if existing highlight is visible
-          const styles = window.getComputedStyle(existingHighlight);
+          // If there are multiple highlights, keep only the first one
+          if (existingHighlights.length > 1) {
+            for (let i = 1; i < existingHighlights.length; i++) {
+              const highlightElement = existingHighlights[i];
+              const parent = highlightElement.parentNode;
+              if (parent) {
+                parent.insertBefore(document.createTextNode(highlightElement.textContent), highlightElement);
+                parent.removeChild(highlightElement);
+              }
+            }
+            console.log(`[Fullscreen] Removed ${existingHighlights.length - 1} duplicate highlights, keeping 1`);
+          }
+          
+          // Check if the remaining highlight is visible
+          const remainingHighlight = existingHighlights[0];
+          const styles = window.getComputedStyle(remainingHighlight);
           const isVisible = styles.visibility !== 'hidden' && styles.opacity !== '0' && styles.display !== 'none';
           const hasBackground = styles.backgroundColor !== 'rgba(0, 0, 0, 0)' && styles.backgroundColor !== 'transparent';
           
@@ -5461,7 +5657,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           if (!isVisible || !hasBackground) {
             console.log('[Fullscreen] Existing highlight is not visible, fixing styles...');
             // Force visibility on existing highlight
-            existingHighlight.style.cssText = `
+            remainingHighlight.style.cssText = `
               background-color: ${highlight.highlight_color || '#ffeb3b'} !important;
               color: inherit !important;
               position: relative !important;
@@ -5522,6 +5718,7 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
               `;
               highlightSpan.className = 'highlight-marker fullscreen-highlight';
               highlightSpan.dataset.highlightId = highlight.id;
+              highlightSpan.dataset.highlightColor = highlight.highlight_color || '#ffeb3b';
               highlightSpan.title = `Highlighted by ${highlight.adviser_name} - Click to comment, Right-click to remove`;
               
               // Add click handler for commenting on highlights
@@ -5630,9 +5827,23 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
           
           try {
             // Check if this highlight already exists to prevent duplicates
-            const existingHighlight = fullscreenContent.querySelector(`[data-highlight-id="${highlight.id}"]`);
-            if (existingHighlight) {
-              console.log('[Fullscreen] Highlight already exists, skipping:', highlight.id);
+            const existingHighlights = fullscreenContent.querySelectorAll(`[data-highlight-id="${highlight.id}"]`);
+            if (existingHighlights.length > 0) {
+              console.log(`[Fullscreen] Found ${existingHighlights.length} existing highlight(s) for ID: ${highlight.id}, cleaning up...`);
+              
+              // If there are multiple highlights, keep only the first one
+              if (existingHighlights.length > 1) {
+                for (let i = 1; i < existingHighlights.length; i++) {
+                  const highlightElement = existingHighlights[i];
+                  const parent = highlightElement.parentNode;
+                  if (parent) {
+                    parent.insertBefore(document.createTextNode(highlightElement.textContent), highlightElement);
+                    parent.removeChild(highlightElement);
+                  }
+                }
+                console.log(`[Fullscreen] Removed ${existingHighlights.length - 1} duplicate highlights, keeping 1`);
+              }
+              
               return;
             }
             
@@ -10396,6 +10607,14 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>Reload Highlights
                 </button>
                 
+                <button id="fullscreen-fix-highlights-btn" class="toolbar-action-btn" title="Fix Highlight Visibility">
+                  <i data-lucide="eye" class="w-4 h-4 mr-2"></i>Fix Highlights
+                </button>
+                
+                <button id="fullscreen-cleanup-duplicates-btn" class="toolbar-action-btn" title="Clean Up Duplicate Highlights">
+                  <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>Clean Duplicates
+                </button>
+                
                 <!-- Quick Comment -->
                 <div class="relative">
                   <button id="fullscreen-quick-comment-btn" class="toolbar-action-btn" title="Quick Comment">
@@ -10514,6 +10733,38 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
           });
         }
+        
+        // Setup fix highlights functionality
+        const fixHighlightsBtn = fullscreenModal.querySelector('#fullscreen-fix-highlights-btn');
+        if (fixHighlightsBtn) {
+          fixHighlightsBtn.addEventListener('click', function() {
+            console.log('[Fullscreen] Manual highlight fix requested');
+            if (window.currentChapterId) {
+              const fixedCount = window.fixFullscreenHighlightsNow();
+              if (fixedCount > 0) {
+                showNotification(`Fixed ${fixedCount} highlight${fixedCount > 1 ? 's' : ''} visibility!`, 'success');
+              } else {
+                showNotification('No highlights found to fix. Try reloading first.', 'warning');
+              }
+            } else {
+              showNotification('No chapter selected for highlighting', 'warning');
+            }
+          });
+        }
+        
+        // Setup cleanup duplicates functionality
+        const cleanupDuplicatesBtn = fullscreenModal.querySelector('#fullscreen-cleanup-duplicates-btn');
+        if (cleanupDuplicatesBtn) {
+          cleanupDuplicatesBtn.addEventListener('click', function() {
+            console.log('[Fullscreen] Manual duplicate cleanup requested');
+            const removedCount = window.cleanupDuplicateHighlights();
+            if (removedCount > 0) {
+              showNotification(`Cleaned up ${removedCount} duplicate highlight${removedCount > 1 ? 's' : ''}!`, 'success');
+            } else {
+              showNotification('No duplicate highlights found.', 'info');
+            }
+          });
+        }
 
         // Setup quick comment functionality
         const quickCommentBtn = fullscreenModal.querySelector('#fullscreen-quick-comment-btn');
@@ -10617,6 +10868,81 @@ $unassigned_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 console.error('[Fullscreen] Error loading document:', error);
               });
           }
+          
+          // Add a more robust highlight loading system for fullscreen
+          // This ensures highlights are applied even if the WordViewer recreates content
+          const ensureFullscreenHighlights = () => {
+            if (!window.currentChapterId) return;
+            
+            console.log('[Fullscreen] Ensuring highlights are visible in fullscreen...');
+            
+            // Wait for content to be available
+            const waitForContent = (attempts = 0, maxAttempts = 10) => {
+              const contentSelectors = [
+                '#fullscreen-document-content-content',
+                '#fullscreen-document-content .word-content',
+                '#fullscreen-document-content'
+              ];
+              
+              let hasContent = false;
+              for (const selector of contentSelectors) {
+                const element = document.querySelector(selector);
+                if (element && element.textContent && element.textContent.length > 100) {
+                  hasContent = true;
+                  break;
+                }
+              }
+              
+              if (hasContent) {
+                console.log('[Fullscreen] Content found, applying highlights...');
+                // Clear any existing highlights first
+                const existingHighlights = document.querySelectorAll('.fullscreen-highlight, .highlight-marker');
+                existingHighlights.forEach(h => {
+                  const parent = h.parentNode;
+                  if (parent) {
+                    parent.insertBefore(document.createTextNode(h.textContent), h);
+                    parent.removeChild(h);
+                  }
+                });
+                
+                // Load and apply highlights
+                window.loadHighlightsInFullscreen(window.currentChapterId);
+                
+                // Force highlight visibility after a short delay
+                setTimeout(() => {
+                  const highlights = document.querySelectorAll('.fullscreen-highlight, .highlight-marker');
+                  highlights.forEach(highlight => {
+                    highlight.style.cssText = `
+                      background-color: #ffeb3b !important;
+                      color: inherit !important;
+                      position: relative !important;
+                      cursor: pointer !important;
+                      display: inline !important;
+                      z-index: 1000 !important;
+                      transition: all 0.2s ease !important;
+                      padding: 2px 4px !important;
+                      border-radius: 3px !important;
+                      border: 1px solid rgba(0,0,0,0.1) !important;
+                      visibility: visible !important;
+                      opacity: 1 !important;
+                    `;
+                  });
+                  console.log(`[Fullscreen] Forced visibility for ${highlights.length} highlights`);
+                }, 500);
+              } else if (attempts < maxAttempts) {
+                console.log(`[Fullscreen] Content not ready yet, retrying... (${attempts + 1}/${maxAttempts})`);
+                setTimeout(() => waitForContent(attempts + 1, maxAttempts), 500);
+              } else {
+                console.log('[Fullscreen] Max attempts reached, giving up on highlight loading');
+              }
+            };
+            
+            // Start the content waiting process
+            setTimeout(() => waitForContent(), 500);
+          };
+          
+          // Call the ensure function after a delay to allow WordViewer to initialize
+          setTimeout(ensureFullscreenHighlights, 1500);
           
           // Add automatic highlight loading system for fullscreen
           window.setupFullscreenAutomaticHighlightLoading = function() {
